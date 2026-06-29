@@ -1,0 +1,9 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/identity/index.md", "reason": "Project identity architecture baseline"}
+{"file": "docs/subboost_oidc_integration_baseline.md", "reason": "Current SubBoost OIDC integration analysis output"}
+{"file": "docs/uuwu_04_adr.md", "reason": "Architecture decisions for Zitadel OIDC PKCE session and provisioning"}
+{"file": "docs/uuwu_06_interface_contracts_boundaries.md", "reason": "OIDC and SubBoost interface contracts"}
+{"file": "external/subboost/local/prisma/schema.prisma", "reason": "SubBoost local admin and ownership schema"}
+{"file": "external/subboost/local/src/lib/session.ts", "reason": "SubBoost JWT local session helper"}
+{"file": "external/subboost/local/src/lib/auth.ts", "reason": "SubBoost current admin lookup"}
+{"file": "external/subboost/local/app/api/auth/login/route.ts", "reason": "Existing local password login route"}

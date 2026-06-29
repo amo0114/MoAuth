@@ -1,0 +1,53 @@
+{
+  "id": "connect-login-password-flow-and-account-selection",
+  "name": "connect-login-password-flow-and-account-selection",
+  "title": "Connect login password flow + account selection UI",
+  "description": "Wire Connect login page to real Zitadel Session API v2: password verification, authRequest finalize (nested session body + IAM_LOGIN_CLIENT role), code/token/userinfo proxy闭环验证, plus account-selection continue endpoint using signed session cookie.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "codex-agent",
+  "assignee": "codex-agent",
+  "createdAt": "2026-06-29",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "brainstorm"
+    },
+    {
+      "phase": 2,
+      "action": "research"
+    },
+    {
+      "phase": 3,
+      "action": "implement"
+    },
+    {
+      "phase": 4,
+      "action": "check"
+    },
+    {
+      "phase": 5,
+      "action": "update-spec"
+    },
+    {
+      "phase": 6,
+      "action": "record-session"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-28-uuwu-connect-mvp-foundation",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

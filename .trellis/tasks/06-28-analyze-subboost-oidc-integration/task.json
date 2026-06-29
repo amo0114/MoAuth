@@ -1,0 +1,53 @@
+{
+  "id": "analyze-subboost-oidc-integration",
+  "name": "analyze-subboost-oidc-integration",
+  "title": "Analyze SubBoost OIDC integration",
+  "description": "Read SubBoost source as external/subboost and produce an integration plan for OIDC login start, callback, local admin binding, allowlist provisioning, local session reuse, tests, and migration scope without changing SubBoost yet.",
+  "status": "planning",
+  "dev_type": "docs",
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "codex-agent",
+  "assignee": "codex-agent",
+  "createdAt": "2026-06-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "brainstorm"
+    },
+    {
+      "phase": 2,
+      "action": "research"
+    },
+    {
+      "phase": 3,
+      "action": "implement"
+    },
+    {
+      "phase": 4,
+      "action": "check"
+    },
+    {
+      "phase": 5,
+      "action": "update-spec"
+    },
+    {
+      "phase": 6,
+      "action": "record-session"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-28-uuwu-connect-mvp-foundation",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

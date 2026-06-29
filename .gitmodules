@@ -1,0 +1,3 @@
+[submodule "external/subboost"]
+	path = external/subboost
+	url = https://github.com/amo0114/subboost

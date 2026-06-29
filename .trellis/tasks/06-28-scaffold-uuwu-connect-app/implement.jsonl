@@ -1,0 +1,10 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": "docs/oidc_client_contract.md", "reason": "OIDC client contract baseline"}
+{"file": ".trellis/spec/identity/index.md", "reason": "Identity architecture baseline"}
+{"file": "packages/connect-contract/src/index.js", "reason": "Reusable OIDC contract exports"}
+{"file": "apps/connect/app/page.jsx", "reason": "Brandable Connect login UI shell"}
+{"file": "apps/connect/src/oidc/authorize.js", "reason": "Authorize request parsing and contract validation"}
+{"file": "apps/connect/src/oidc/discovery.js", "reason": "OIDC discovery metadata adapter"}
+{"file": "apps/connect/src/config/clients.js", "reason": "Initial registered clients including SubBoost dev"}

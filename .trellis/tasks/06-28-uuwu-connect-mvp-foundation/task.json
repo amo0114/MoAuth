@@ -1,0 +1,58 @@
+{
+  "id": "uuwu-connect-mvp-foundation",
+  "name": "uuwu-connect-mvp-foundation",
+  "title": "Uuwu Connect MVP foundation",
+  "description": "Project kickoff task for Uuwu Account / Uuwu Connect MVP. Keep reusable identity architecture first; use SubBoost as the first client application, not the architecture owner.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "codex-agent",
+  "assignee": "codex-agent",
+  "createdAt": "2026-06-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "brainstorm"
+    },
+    {
+      "phase": 2,
+      "action": "research"
+    },
+    {
+      "phase": 3,
+      "action": "implement"
+    },
+    {
+      "phase": 4,
+      "action": "check"
+    },
+    {
+      "phase": 5,
+      "action": "update-spec"
+    },
+    {
+      "phase": 6,
+      "action": "record-session"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-28-define-reusable-oidc-client-contract",
+    "06-28-analyze-subboost-oidc-integration",
+    "06-28-scaffold-uuwu-connect-app",
+    "06-29-connect-login-password-flow-and-account-selection"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

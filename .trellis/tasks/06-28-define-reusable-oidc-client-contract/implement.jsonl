@@ -1,0 +1,11 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/identity/index.md", "reason": "Identity architecture baseline"}
+{"file": "docs/uuwu_04_adr.md", "reason": "OIDC PKCE and provisioning decisions"}
+{"file": "docs/uuwu_06_interface_contracts_boundaries.md", "reason": "OIDC interface contract details"}
+{"file": "packages/connect-contract/src/client-contract.js", "reason": "Reusable OIDC client contract implementation"}
+{"file": "packages/connect-contract/src/provisioning.js", "reason": "Generic local provisioning decision policy"}
+{"file": "packages/connect-contract/src/pkce.js", "reason": "PKCE S256 helper and policy enforcement"}
+{"file": "packages/connect-contract/src/index.js", "reason": "Public exports for contract package"}
+{"file": "docs/oidc_client_contract.md", "reason": "Human-readable OIDC client contract baseline"}

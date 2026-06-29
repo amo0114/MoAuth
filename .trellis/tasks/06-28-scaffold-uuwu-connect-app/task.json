@@ -1,0 +1,53 @@
+{
+  "id": "scaffold-uuwu-connect-app",
+  "name": "scaffold-uuwu-connect-app",
+  "title": "Scaffold Uuwu Connect Next.js app",
+  "description": "Create the first Uuwu Connect Next.js app skeleton with brandable UI foundation, OIDC discovery endpoint, authorize request validation, and integration with packages/connect-contract.",
+  "status": "planning",
+  "dev_type": "fullstack",
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "codex-agent",
+  "assignee": "codex-agent",
+  "createdAt": "2026-06-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "brainstorm"
+    },
+    {
+      "phase": 2,
+      "action": "research"
+    },
+    {
+      "phase": 3,
+      "action": "implement"
+    },
+    {
+      "phase": 4,
+      "action": "check"
+    },
+    {
+      "phase": 5,
+      "action": "update-spec"
+    },
+    {
+      "phase": 6,
+      "action": "record-session"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-28-uuwu-connect-mvp-foundation",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

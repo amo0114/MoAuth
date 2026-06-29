@@ -1,0 +1,14 @@
+{
+  "name": "@moauth/connect-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable identity Connect OIDC client contract and PKCE policy helpers.",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
