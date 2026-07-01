@@ -1,5 +1,8 @@
 # 2. 专业 PRD（Product Requirements Document）
 
+> **状态**：历史稿 v1。产品定义冲突处以 **[`moauth_prd.md`](./moauth_prd.md) v2.0** 为准。
+> 主要修订：注册/找回密码归 Account；应用管理 Console 提升为 P4 Must；Connect 不再承载注册表单。
+
 ## 2.1 项目概述
 
 ### 2.1.1 背景

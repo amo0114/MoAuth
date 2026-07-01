@@ -237,45 +237,44 @@ MVP consent 策略：
 
 ---
 
-## ADR-007：部署策略采用“Cloud PoC + 可迁移生产架构”基线
+## ADR-007：部署策略采用“Cloud PoC + 生产自部署 ZITADEL”基线
 
-**状态**：Proposed。
+**状态**：Accepted（2026-06，与 `moauth_prd.md` DEC-09 对齐）。
 
 ### 上下文
 
-甲方候选部署模型包括 Zitadel Hosted Login、fork/self-host Login App、完全自定义 Account/Connect。Zitadel 可采用 Cloud 或 self-hosted 两类部署方式。Cloud 适合快速启动，self-hosted 适合完全控制组件和环境。
+甲方候选部署模型包括 Zitadel Hosted Login、fork/self-host Login App、完全自定义 Account/Connect。Zitadel 可采用 Cloud 或 self-hosted 两类部署方式。Cloud 适合快速启动，self-hosted 适合完全控制组件、隐藏核心与数据驻留。`moauth_prd.md` v2 明确产品负责人目标为**自部署 ZITADEL**。
 
 ### 决策
 
-1. Phase 0/1 技术验证默认使用 Zitadel Cloud 测试租户或轻量自托管测试实例。
-2. 生产部署在 M0 决策门二选一：
-   - **推荐默认**：Zitadel Cloud + Uuwu custom domain + self-host Uuwu Login App。
-   - **合规优先**：self-hosted Zitadel + self-host Uuwu Login App。
-3. 无论选择 Cloud 还是 self-host，业务应用只依赖 OIDC 标准接口，不依赖环境私有 API。
+1. **Phase 0/1 技术验证**：允许 Zitadel Cloud 测试租户**或**轻量自托管测试实例（PoC 专用）。
+2. **生产目标形态**：**self-hosted ZITADEL** + self-host Connect/Account/Console；ZITADEL 核心不对终端用户暴露。
+3. **Zitadel Cloud 不得作为生产默认路径**；若 PoC 阶段使用 Cloud，须文档化 Cloud→self-host 迁移策略（用户、client、策略、审计）。
+4. 无论 PoC 或生产，业务应用只依赖 OIDC 标准接口（Connect issuer），不依赖环境私有 API。
 
 ### 备选方案与权衡
 
 | 方案 | 优点 | 缺点 | 结论 |
 |---|---|---|---|
-| Zitadel Cloud | 启动快、运维负担低 | 需法务确认 DPA、数据驻留、SLA | 默认 PoC，生产可选 |
-| Self-hosted Zitadel | 控制力强、可隐藏核心 | 运维、备份、升级责任高 | 合规优先场景采用 |
+| Zitadel Cloud | 启动快、运维负担低 | DPA、数据驻留、SLA、隐藏核心受限 | **仅 PoC** |
+| Self-hosted Zitadel | 控制力强、可隐藏核心、符合自维护诉求 | 运维、备份、升级责任高 | **生产采用** |
 | 完全自托管 + 自研 UI/协议 | 控制最大 | 风险最大 | 不采用 |
 
 ### 后果
 
-- 早期交付速度与长期可控性兼顾。
-- 需明确 Cloud 到 self-host 的数据迁移策略。
-- Secret、备份、版本升级、监控策略需按最终部署模式细化。
+- PoC 可快速验证 OIDC 与 SubBoost 路径，但生产运维、备份、监控、Runbook 按 self-host 标准建设。
+- 须明确 Cloud 到 self-host 的数据迁移策略与演练节奏。
+- Secret、备份、版本升级、监控策略按 self-host 模式细化。
 
 ### 与业务目标关联
 
-支持快速验证 SubBoost，同时为长期统一身份平台保留部署自主权。
+支持快速验证 SubBoost，同时满足「自维护、隐藏认证核心、生产可控」的长期目标。
 
 ---
 
 ## ADR-008：Connect Login App 使用 Zitadel Session API v2 完成密码登录与单会话 Continue
 
-**状态**：Accepted for Phase 1 PoC。
+**状态**：Superseded by ADR-009（v2.2）。P1 PoC 已验证；**目标态密码登录迁至 Account**，Connect 密码表单仅作 `CONNECT_PASSWORD_LOGIN_FALLBACK` 保留。
 
 ### 上下文
 
@@ -328,3 +327,77 @@ Phase 1 需要证明用户只通过 Connect 登录页即可完成 OIDC Authoriza
 ### 与业务目标关联
 
 该决策完成 Phase 1 的核心验证：自定义 Connect 登录体验、标准 OIDC + PKCE 客户端接入、隐藏 Zitadel、并为账号选择和后续 MFA/Passkey 流程建立可复用边界。
+
+---
+
+## ADR-009：Account 收密码、Connect 仅 SSO/授权；Login Handoff 建立 Connect 会话
+
+**状态**：Accepted（v2.2，2026-06-30）。
+
+### 上下文
+
+v2.1 PRD（DEC-10）将 P2 注册后登录定为「用户在 Connect 再输入密码一次」，与产品矩阵「注册归 Account、Connect 仅登录网关」的长期边界存在张力。并行实施任务包要求：
+
+- **Account 收密码**，调用 Zitadel Session API 创建 password session；
+- **Connect 不收密码**，仅 OIDC 代理、SSO 复用、consent、finalize authRequest；
+- 两域之间通过 **Login Handoff** 传递已认证 session，浏览器不接触 `sessionToken`。
+
+P1 PoC（ADR-008）已在 Connect 验证密码登录与 continue；该能力保留为开发/迁移 fallback，生产默认关闭。
+
+### 决策
+
+1. **职责分离**
+   - Account：`POST /api/login` 收 `loginName` + `password`；BFF 调用共享 server-only `createPasswordSession`；**不本地存密码、不自行校验 hash**。
+   - Connect：无 Connect SSO 时 `302` Account `/login?auth_request=...&return_to=...`；**目标态不展示邮箱/密码表单**。
+   - Connect：handoff 成功后建立 Connect SSO，展示 consent（用户 + scopes + 允许/拒绝），再 `finalizeAuthRequest`。
+
+2. **Login Handoff 流程**
+   - Account 登录成功 → 内部 `issueHandoff(payload)` → 浏览器 `302` Connect `/login/handoff?code=...&auth_request=...`
+   - Connect BFF → Account `POST /api/handoff/consume`（`Authorization: Bearer <MOAUTH_HANDOFF_INTERNAL_TOKEN>` 或等价 header）
+   - Account 原子消费 code，返回 payload（含 `sessionId`, `sessionToken`, `sub`, claims）
+   - 完整契约见 `uuwu_06_interface_contracts_boundaries.md` **IC-013**
+
+3. **Handoff 安全约束**
+   - `code`：加密随机 ≥ 32 bytes；store **仅存 hash**（如 SHA-256）
+   - TTL ≤ 60s；**单次消费**；绑定 `authRequestId` + `sub` + `clientId` + `redirectUri` + `scopes`
+   - 浏览器只携带 opaque `code`；禁止 query 或 cookie 传递 `sessionToken`
+
+4. **Connect SSO 存储**
+   - **推荐**：cookie 仅存 opaque `connect_session_id`；`sessionId` / `sessionToken` 存服务端 session store（生产 Redis/Postgres）
+   - **开发期**：允许 sealed cookie（加密封装，不得仅 HMAC 签名裸存 token）
+   - `/api/login/continue` 从服务端 store 读取 session 并 finalize 新 authRequest
+
+5. **共享 Zitadel Server Client**
+   - 抽取 `packages/zitadel-client` 或 `packages/identity-core`（server-only）
+   - 暴露：`createPasswordSession`, `getAuthRequest`, `finalizeAuthRequest`
+   - Account 与 Connect 共用；**禁止** client-side import；service token / session token 不得进入日志或前端 bundle
+
+6. **Fallback（非目标态）**
+   - `CONNECT_PASSWORD_LOGIN_FALLBACK=true` 时保留 ADR-008 Connect `POST /api/login` 密码表单
+   - 本地开发可默认开启；**生产默认关闭**
+
+7. **`prompt` 处理（Connect authorize）**
+   - `login`：忽略 Connect SSO，强制 Account 重新登录
+   - `none`：无 SSO 返回 OIDC `login_required`，不跳转交互页
+   - `consent`：强制 consent UI
+   - `select_account`：P5 可跳 Account 选择（P2 可展示未完成提示）
+
+### 备选方案与权衡
+
+| 方案 | 优点 | 缺点 | 结论 |
+|---|---|---|---|
+| Account 收密码 + Handoff | 职责清晰；Connect 专注 OIDC/SSO；注册与登录同域 | 需 handoff store、内部 service auth、跨进程 consume | **采用（P2 主路径）** |
+| Connect 再登录一次（原 DEC-10） | 实现简单；复用 P1 PoC | Connect 收密码与产品矩阵冲突；注册后双域输密码体验差 | **降为 fallback** |
+| 浏览器直接带 sessionToken 回 Connect | 少一次 server round-trip | token 泄漏面大 | 禁止 |
+| Account cookie 给 Connect 读取 | 看似省 handoff | 破坏域隔离；Connect 无法独立 SSO 生命周期 | 禁止 |
+
+### 后果
+
+- 新增 `apps/account/`（建议本地 :3002）与 handoff store（开发 memory；生产 Redis/Postgres）
+- Connect 登录页改为 redirect + consent；任务包 5/6 改造 UI
+- DEC-10 修订：Handoff 自 P2 采用，原 Connect 再登录为 fallback
+- P1 Connect 测试须继续通过；新增 handoff mock 测试与无 client-side 泄漏验收
+
+### 与业务目标关联
+
+落实「Account 注册与账号管理 + Connect 登录网关」分域模型；SubBoost 等业务应用仍只接 Connect OIDC，不感知 handoff 或 Zitadel Session API。

@@ -1,15 +1,19 @@
 # 5. 任务拆分与实施计划（Work Breakdown Structure & Implementation Plan）
 
+> **同步说明**：阶段划分与 Epic 边界以 [`moauth_prd.md`](./moauth_prd.md) v2.1 为准。Register/Reset Password 属 **Account Center（P2）**，不属于 Connect Epic。
+
 ## 5.1 阶段划分
 
 | 阶段 | 目标 | 主要输出 |
 |---|---|---|
-| Phase 0：需求细化与架构设计 | 锁定范围、选型、域名、部署、账号策略 | PRD、ADR、接口契约、实施计划 |
-| Phase 1：OIDC MVP With SubBoost | 跑通 SubBoost OIDC 登录闭环 | Zitadel tenant、SubBoost client、callback、本地 session |
-| Phase 2：Branded Connect Experience | Uuwu 品牌化登录/授权体验 | 自定义 Login App、账号选择、consent、错误页 |
-| Phase 3：Account Center | 用户自助账号安全管理 | Profile、密码、MFA/Passkey、session、授权应用 |
-| Phase 4：Multi-App Integration Kit | 支撑更多 Uuwu 应用接入 | 接入指南、样例代码、配置模板、checklist |
-| Phase 5：生产加固与运维交接 | 安全、观测、备份、回滚、培训 | 安全报告、Runbook、培训材料 |
+| P0：需求细化与架构设计 | PRD v2 会签、ADR、接口契约 | `moauth_prd.md`、ADR、验收清单 |
+| P1：Connect 基础能力 | OIDC 代理、密码登录、SSO continue | Connect 登录闭环 |
+| P2：Account MVP | 注册、邮箱验证、找回密码；Connect 跳转与注册后再登录 | Account 站点；DEC-10 MVP 路径 |
+| P3：首应用接入（SubBoost） | OIDC 客户端、本地 session、allowlist；可与 P2 技术开发并行 | SubBoost 闭环（完整 UAT 依赖 P2） |
+| P4：应用管理后台（Console） | 配置化创建 OIDC Client，零 Connect 代码新增应用 | Console MVP（仅平台管理员） |
+| P5：Account 完整 + Connect 增强 | MFA、Passkey、资料、Login Handoff（可选） | 账号安全自助齐全 |
+| P6：多应用接入套件 | 第二应用、接入指南、示例 | Integration Kit |
+| P7：生产加固 | 安全、观测、备份、回滚 | Runbook、监控 |
 
 ---
 
@@ -30,12 +34,11 @@ mindmap
       Email
     Epic E3 Connect Login
       Login
-      Register
-      Reset Password
       Account Picker
       Consent
       Logout
       Error Pages
+      Link to Account
     Epic E4 SubBoost Integration
       Login Button
       Callback
@@ -44,6 +47,9 @@ mindmap
       Local Session
       Provisioning
     Epic E5 Account Center
+      Register
+      Email Verify
+      Forgot Reset Password
       Profile
       Email
       Password
@@ -82,8 +88,8 @@ mindmap
 | T-010 | E2 / Email | 配置邮件验证与密码重置 | 测试邮箱收到验证/重置邮件 | 1 人天 | DEP-003 | 乙方 | Must |
 | T-011 | E3 / Login App Spike | 验证 Hosted Login 或官方 Login App OIDC flow | authorize -> callback -> token 成功 | 2 人天 | T-008 | 乙方 | Must |
 | T-012 | E3 / Login UI | 实现 Uuwu 品牌登录页 | 正确凭证可登录，错误凭证有统一错误 | 3 人天 | T-011 | 乙方 | Must |
-| T-013 | E3 / Register | 实现注册页 | 新用户创建成功并触发邮箱验证 | 3 人天 | T-010 | 乙方 | Must |
-| T-014 | E3 / Reset | 实现忘记密码与重置密码 | 用户可完成密码重置 | 2 人天 | T-010 | 乙方 | Must |
+| T-013 | E5 / Register | Account 实现注册页 | 新用户创建成功并触发邮箱验证；完成后回 Connect 须再登录（DEC-10） | 3 人天 | T-010 | 乙方 | Must P2 |
+| T-014 | E5 / Reset | Account 实现忘记密码与重置密码 | 用户可完成密码重置 | 2 人天 | T-010 | 乙方 | Must P2 |
 | T-015 | E3 / Session Detection | 实现已有 session 检测与快速登录 | 已登录用户二次进入无需输密码 | 2 人天 | T-012 | 乙方 | Must |
 | T-016 | E3 / Account Picker | 实现账号选择页 | 多 session 时可选择账号 | 3 人天 | T-015 | 乙方 | Should |
 | T-017 | E3 / Consent | 实现一方应用轻量授权确认页 | 展示 app name/logo/scopes，确认后继续 | 3 人天 | T-012 | 乙方 | Should |

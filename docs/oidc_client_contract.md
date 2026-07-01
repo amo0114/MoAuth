@@ -9,7 +9,8 @@
 - Business applications use OIDC Authorization Code + PKCE.
 - `code_challenge_method` must be `S256`.
 - Required scopes are `openid profile email`.
-- Required identity claims are `sub`, `name`, `email`, `email_verified`, and `picture`.
+- **Required identity claims** (callback must fail if missing): `sub`, `email`, `email_verified`.
+- **Optional profile claims** (use when present; absence or empty value must not fail login): `name`, `preferred_username`, `picture`.
 - Redirect URIs must match registration exactly.
 - Production redirect URIs must use HTTPS.
 - Business applications own local session, roles, permissions, quota, and audit.

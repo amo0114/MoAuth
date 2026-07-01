@@ -12,9 +12,10 @@
 
 | 文件 | 内容 | 建议评审对象 |
 |---|---|---|
+| **`moauth_prd.md`** | **PRD v2.0（产品主基线）**：产品矩阵、Connect/Account/Console 职责、分阶段路线、会签级 FR | **全体评审参与方（优先）** |
 | `uuwu_00_index.md` | 文档包索引、基线结论、评审顺序、参考基线、版本管理建议 | 全体评审参与方 |
 | `uuwu_01_executive_summary.md` | 执行摘要、需求理解、假设约束、风险、澄清问题 | 甲方决策层、产品负责人、技术负责人 |
-| `uuwu_02_prd.md` | 专业 PRD：目标、用户画像、FR/NFR、数据集成、验收标准 | 产品、研发、测试、安全、运维 |
+| `uuwu_02_prd.md` | 专业 PRD v1（历史稿）；与 `moauth_prd.md` 冲突时以 v2 为准 | 产品、研发、测试、安全、运维 |
 | `uuwu_03_delivery_contract.md` | 交付契约：范围、交付物、里程碑、RACI、变更、付款、依赖 | 商务、法务、项目管理、交付负责人 |
 | `uuwu_04_adr.md` | 架构决策记录 ADR：Zitadel、Login App、域名 Cookie、OIDC、部署等 | 架构委员会、研发负责人、安全负责人 |
 | `uuwu_05_wbs_implementation_plan.md` | 任务拆分与实施计划：WBS、任务表、团队、Spike | 项目经理、研发、测试、DevOps |
@@ -25,13 +26,15 @@
 
 ## 基线结论摘要
 
-1. **目标不是“给 SubBoost 加一个第三方登录按钮”**，而是建设可复用的一方统一身份产品：Uuwu Account + Uuwu Connect。
-2. **Zitadel 建议作为隐藏认证核心（IdP/Auth Core）**，负责协议、用户、会话、MFA、Passkey、令牌与审计；Uuwu 自有 Connect/Login UI 负责用户可见体验。
-3. **业务应用统一采用 OIDC Authorization Code + PKCE**，并在应用内保留本地 session、业务角色、权限、审计与业务数据。
-4. **SubBoost 是首个落地应用**，MVP 必须证明注册/登录/SSO 快速登录/OIDC callback/userinfo/本地账号绑定/本地 session 的完整闭环。
-5. **生产 MVP 推荐 fork 或 self-host Zitadel Login App**，Hosted Login V2 可用于 Phase 0/1 快速技术验证。
-6. **`connect.uuwu.de` 与 `account.uuwu.de` 建议从 Day 1 保留域名边界**；实现上可先同仓/同服务分区部署，避免后续 Passkey、Cookie、品牌与用户认知迁移成本。
-7. **SubBoost 首版默认 invite/allowlist**，防止任何 Uuwu 新注册账号自动成为 SubBoost 管理员。
+> **2026-06-30 更新**：产品定义以 [`moauth_prd.md`](./moauth_prd.md) **v2.1（已会签）** 为主基线。以下为摘要。
+
+1. **目标不是“给 SubBoost 加一个第三方登录按钮”**，而是建设可复用统一身份产品：**Account（注册与账号管理）+ Connect（登录与 OIDC 网关）+ Console（应用配置）**。
+2. **ZITADEL 作为隐藏认证核心（自部署为目标形态）**；终端用户只见 Connect / Account 品牌体验。
+3. **注册、邮箱验证、找回密码归 Account**；Connect 仅提供登录、授权、SSO 与跳转入口。
+4. **业务应用统一 OIDC Authorization Code + PKCE**，保留本地 session 与权限；**新增应用通过 Console 配置，不改 Connect 核心代码**。
+5. **SubBoost 是首个验证应用**；默认 allowlist，统一身份注册成功不自动获得 SubBoost 管理权限。
+6. **`connect.*` 与 `account.*` 分域名**；品牌名通过配置注入，不固化早期占位名 Uuwu。
+7. **推荐实施顺序**：P1 Connect 基础 → **P2 Account MVP** → P3 SubBoost 闭环 → P4 应用管理后台。
 
 ---
 

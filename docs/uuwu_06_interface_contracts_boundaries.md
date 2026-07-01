@@ -71,6 +71,7 @@ flowchart LR
   AccountFE --> AccountBFF
   AccountBFF --> ZitadelAPI
 
+  ConnectBFF -->|handoff consume| AccountBFF
   SBAPI -->|token/userinfo| ConnectBFF
   ConnectBFF -->|proxy| ZitadelAPI
   ZitadelAPI --> ZitadelDB
@@ -94,6 +95,8 @@ flowchart LR
 | IC-010 | Account Profile | Account Center | Zitadel API via BFF | HTTPS API | Phase 3 |
 | IC-011 | Account Security | Account Center | Zitadel API via BFF | HTTPS API | Phase 3 |
 | IC-012 | Audit Events | Connect/SubBoost/Zitadel | Observability | Logs/OTLP | Phase 1 |
+| IC-013 | Login Handoff | Account BFF ↔ Connect BFF | HTTPS API（内部鉴权） | Phase 2 |
+| IC-014 | Account Password Login | Account Login UI | Account BFF → Zitadel Session API | HTTPS API | Phase 2 |
 
 ---
 
@@ -241,12 +244,14 @@ SubBoost 本地用户绑定表建议：
 | SLA | P95 < 800ms |
 | 错误码 | `SESSION_LOOKUP_FAILED`, `SESSION_EXPIRED`, `ACCOUNT_SELECTION_REQUIRED` |
 
-##### MVP 可执行契约：密码登录与单会话 Continue
+##### 历史 PoC 契约：Connect 密码登录与单会话 Continue（Fallback）
+
+> **v2.2**：目标态密码登录已迁至 Account（IC-014）+ Login Handoff（IC-013）。本节仅在 `CONNECT_PASSWORD_LOGIN_FALLBACK=true` 时适用。生产默认关闭。
 
 **Scope / Trigger**
 
 - 适用范围：Connect Login App 通过 Zitadel Session API v2 完成密码登录、authRequest finalize，以及使用已记住的 Connect session 继续新的 OIDC authRequest。
-- 触发条件：业务应用进入 `GET /oauth/v2/authorize?...code_challenge=...` 后，Connect 登录页收到 `authRequest`。
+- 触发条件：业务应用进入 `GET /oauth/v2/authorize?...code_challenge=...` 后，Connect 登录页收到 `authRequest`，且 fallback 开关开启。
 
 **Signatures**
 
@@ -322,14 +327,197 @@ Correct:
 
 | 字段 | 说明 |
 |---|---|
-| UI Endpoint | `GET https://connect.uuwu.de/consent` |
-| 入参 | `authRequest` |
-| 展示内容 | 应用名称、logo、发布者、请求 scopes、资料使用说明 |
-| 用户动作 | `Allow` / `Cancel` |
-| 成功 | 继续 finalize auth request |
-| 取消 | 返回业务应用 `access_denied` |
+| UI Endpoint | `GET https://connect.uuwu.de/login` 或 `/consent`（handoff/SSO 建立后内嵌展示） |
+| 入参 | `authRequest`（或 login transaction `tx`） |
+| 展示内容 | **SubBoost → MoYuan ID** 链路提示；当前用户（`loginName` / `email`）；应用名称、logo；请求 scopes（如基础资料、邮箱）；**不得展示邮箱/密码输入** |
+| 用户动作 | **允许继续**（主按钮）/ **拒绝**（次按钮）；可选「切换账号」→ Account `/login` |
+| 成功 | Connect BFF `finalizeAuthRequest` → 302 业务应用 callback |
+| 取消/拒绝 | `redirect_uri?error=access_denied&state=<原 state>` |
 | 记录 | 记录 consent audit event |
 | SLA | P95 < 800ms |
+
+**`prompt` 与 Consent 交互**：
+
+| `prompt` | Connect 行为 |
+|---|---|
+| （默认） | 有 Connect SSO → 按需 consent；无 SSO → 302 Account `/login` |
+| `login` | 清除/忽略 Connect SSO；302 Account 重新登录 |
+| `none` | 无 SSO → OIDC `error=login_required`（不展示交互页） |
+| `consent` | 强制展示 consent |
+| `select_account` | P5：302 Account 账号选择 |
+
+#### IC-013：Login Handoff（Account → Connect）
+
+**Scope / Trigger**
+
+- 适用范围：Account 完成密码认证后，向 Connect 安全传递 Zitadel session，建立 Connect SSO；浏览器不接触 `sessionId` / `sessionToken`。
+- 触发条件：Account `POST /api/login` 成功，且请求携带有效 `authRequestId`（来自 Connect redirect 的 `auth_request` 查询参数）。
+
+**端点**
+
+| Endpoint | 调用方 | 认证 | 行为 |
+|---|---|---|---|
+| `GET /login/handoff?code=...&auth_request=...` | Browser | 无（opaque code 一次性） | Connect 页面路由；服务端 consume 后建立 SSO |
+| `POST /api/handoff/issue` | Account BFF（内部） | Account session 或登录成功上下文 | 写入 handoff store；返回 `{ code, expiresAt }` |
+| `POST /api/handoff/consume` | **Connect BFF only** | `Authorization: Bearer <MOAUTH_HANDOFF_INTERNAL_TOKEN>` | 原子消费 code；返回 payload |
+
+**Issue 输入（Account 内部，登录成功后组装）**
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `authRequestId` | string | 是 | Zitadel auth request id，如 `V2_xxx` |
+| `clientId` | string | 是 | OIDC client id |
+| `redirectUri` | string | 是 | 注册回调 URI |
+| `scopes` | string[] | 是 | 授权 scopes |
+| `sub` | string | 是 | Zitadel user id |
+| `loginName` | string | 是 | 登录名 |
+| `email` | string | 是 | 邮箱 |
+| `emailVerified` | boolean | 是 | 邮箱验证状态 |
+| `sessionId` | string | 是 | Zitadel session id |
+| `sessionToken` | string | 是 | Zitadel session token（**仅 store 与 consume 响应，不经浏览器**） |
+
+**Store 记录模型（`version: 1`）**
+
+```json
+{
+  "version": 1,
+  "authRequestId": "V2_xxx",
+  "clientId": "subboost-dev",
+  "redirectUri": "http://127.0.0.1:3001/api/auth/moauth/callback",
+  "scopes": ["openid", "profile", "email"],
+  "sub": "zitadel-user-id",
+  "loginName": "alice",
+  "email": "alice@example.com",
+  "emailVerified": true,
+  "sessionId": "zitadel-session-id",
+  "sessionToken": "zitadel-session-token",
+  "issuedAt": "2026-06-30T12:00:00.000Z",
+  "expiresAt": "2026-06-30T12:01:00.000Z"
+}
+```
+
+**Issue 输出**
+
+```json
+{
+  "code": "base64url-opaque-code",
+  "expiresAt": "2026-06-30T12:01:00.000Z"
+}
+```
+
+**Consume 请求**
+
+```json
+{
+  "code": "base64url-opaque-code",
+  "authRequestId": "V2_xxx"
+}
+```
+
+**Consume 成功响应**
+
+```json
+{
+  "status": "HANDOFF_CONSUMED",
+  "payload": {
+    "version": 1,
+    "authRequestId": "V2_xxx",
+    "clientId": "subboost-dev",
+    "redirectUri": "http://127.0.0.1:3001/api/auth/moauth/callback",
+    "scopes": ["openid", "profile", "email"],
+    "sub": "zitadel-user-id",
+    "loginName": "alice",
+    "email": "alice@example.com",
+    "emailVerified": true,
+    "sessionId": "zitadel-session-id",
+    "sessionToken": "zitadel-session-token",
+    "issuedAt": "2026-06-30T12:00:00.000Z",
+    "expiresAt": "2026-06-30T12:01:00.000Z"
+  }
+}
+```
+
+**安全约束**
+
+| 约束 | 要求 |
+|---|---|
+| `code` 熵 | 加密随机 **≥ 32 bytes**；对外 base64url 编码 |
+| Store 持久化 | **仅存 `code` 的 hash**（推荐 SHA-256）；禁止明文 code 落库 |
+| TTL | ≤ **60s** |
+| 消费次数 | **单次**；consume 必须**原子化**（compare-and-delete 或事务） |
+| 绑定字段 | `authRequestId` + `sub` + `clientId` + `redirectUri` + `scopes`（consume 时 `authRequestId` 必须匹配） |
+| 浏览器暴露面 | 仅 opaque `code` query；**禁止** `sessionToken` 出现在 URL、localStorage、前端 JS |
+| 内部鉴权 | Connect → Account consume 必须带 `MOAUTH_HANDOFF_INTERNAL_TOKEN`；未授权返回 `HANDOFF_UNAUTHORIZED` |
+| 跨进程 | Account/Connect 独立进程时，handoff store 不得仅用 Account 内存（除非仅 Account backchannel consume）；**推荐 Redis/Postgres** |
+
+**Store 接口（实现层）**
+
+| 函数 | 输入 | 输出 |
+|---|---|---|
+| `issueHandoff(payload)` | IC-013 payload（无 code） | `{ code, expiresAt }` |
+| `consumeHandoff({ code, authRequestId })` | opaque code + authRequestId | payload 或错误 |
+
+**Validation Matrix**
+
+| Case | Expected |
+|---|---|
+| Good | Account 登录成功 → issue → 浏览器带 code 到 Connect → consume 成功 → Connect SSO 建立 → consent → finalize → callback |
+| Good | 第二应用 authorize；Connect 有 SSO → 不跳 Account → consent/continue |
+| Bad | 同一 code consume 两次 → `HANDOFF_ALREADY_CONSUMED` |
+| Bad | TTL 过期 → `HANDOFF_EXPIRED` |
+| Bad | consume 的 `authRequestId` 与 store 记录不一致 → `HANDOFF_BINDING_MISMATCH` |
+| Bad | 缺少/错误 internal token → `HANDOFF_UNAUTHORIZED` |
+| Bad | 未知 code → `HANDOFF_NOT_FOUND` |
+
+**Connect SSO 建立（consume 之后）**
+
+1. 将 `sessionId` / `sessionToken` 写入 Connect 服务端 session store（key = 新 opaque `connect_session_id`）
+2. 设置 HttpOnly cookie `moauth_connect_session` = opaque id only（生产路径）
+3. 开发期允许 sealed cookie，但须加密封装 token，不得仅签名裸存
+
+**环境变量**
+
+| 变量 | 归属 | 说明 |
+|---|---|---|
+| `MOAUTH_HANDOFF_INTERNAL_TOKEN` | Account + Connect | Connect consume 与 Account 校验共享密钥 |
+| `CONNECT_PASSWORD_LOGIN_FALLBACK` | Connect | `true` 启用 ADR-008 密码表单；生产默认 `false` |
+
+**测试点**
+
+- handoff issue/consume mock tests（Account + Connect）
+- 重放、过期、binding mismatch、unauthorized consume
+- 无 client-side import 泄漏（`zitadel-client` / `identity-core` server-only）
+- 原 Connect fallback tests 在 `CONNECT_PASSWORD_LOGIN_FALLBACK=true` 时仍通过
+
+---
+
+#### IC-014：Account Password Login
+
+| 字段 | 说明 |
+|---|---|
+| UI Endpoint | `GET https://account.uuwu.de/login` |
+| 查询参数 | `auth_request`（必填，来自 Connect）、`return_to`（Connect 白名单路径）、`registered=1`（可选，注册完成提示） |
+| BFF Endpoint | `POST https://account.uuwu.de/api/login` |
+| 请求体 | `{ "authRequestId", "loginName", "password" }` |
+| 成功行为 | 调共享 `createPasswordSession` → `issueHandoff` → `302` Connect `/login/handoff?code=...&auth_request=...` |
+| 失败行为 | 展示 Account 品牌错误；**不向 Connect 传递密码** |
+| 边界 | Account **不存密码、不校验 hash**；验证由 Zitadel 完成 |
+| Cookie | Account 自有 session cookie（`account.*` 域）；Connect **不得读取** |
+| 关联页面 | `/register`、`/forgot-password`（P2 MVP） |
+| 本地端口 | 建议 `3002` |
+| 错误码 | `ACCOUNT_LOGIN_BAD_REQUEST`, `ACCOUNT_INVALID_CREDENTIALS`, `ZITADEL_NOT_CONFIGURED`, `HANDOFF_ISSUE_FAILED` |
+
+**共享 Zitadel Server Client（server-only）**
+
+建议路径：`packages/zitadel-client/` 或 `packages/identity-core/`
+
+| 函数 | 调用方 | 说明 |
+|---|---|---|
+| `createPasswordSession({ loginName, password })` | Account BFF | 创建 Zitadel password session |
+| `getAuthRequest(authRequestId)` | Connect / Account BFF | 读取 auth request 元数据 |
+| `finalizeAuthRequest({ authRequestId, sessionId, sessionToken })` | Connect BFF | CreateCallback 嵌套 body（ADR-008） |
+
+---
 
 #### IC-009：Logout / End Session
 
@@ -377,12 +565,19 @@ Correct:
 | `TOKEN_EXCHANGE_FAILED` | 502 | 登录服务暂时不可用 | 重试或联系支持 |
 | `USER_BINDING_FAILED` | 500 | 账号绑定失败 | 写入 trace ID，人工排查 |
 | `CONFIGURATION_ERROR` | 500 | 应用配置错误 | 阻断上线 |
+| `HANDOFF_ALREADY_CONSUMED` | 409 | 登录链接已使用，请重新登录 | 引导用户从应用重新发起登录 |
+| `HANDOFF_EXPIRED` | 410 | 登录链接已过期，请重新登录 | 引导 Account 重新登录 |
+| `HANDOFF_BINDING_MISMATCH` | 400 | 登录上下文不匹配 | 安全日志；引导重新 authorize |
+| `HANDOFF_NOT_FOUND` | 404 | 登录链接无效 | 引导重新登录 |
+| `HANDOFF_UNAUTHORIZED` | 401 | —（仅 server-to-server） | Connect 配置错误；不暴露给终端用户 |
+| `HANDOFF_ISSUE_FAILED` | 500 | 登录成功但无法继续，请重试 | Account 内部错误 |
+| `LOGIN_REQUIRED` | 401 | 需要登录（`prompt=none`） | OIDC `error=login_required` 回传业务应用 |
 
 ---
 
 ### 6.1.5 关键业务流程序列图
 
-#### 首次登录 SubBoost
+#### 首次登录 SubBoost（P2 目标态：Account 收密码 + Handoff）
 
 ```mermaid
 sequenceDiagram
@@ -390,6 +585,7 @@ sequenceDiagram
   actor U as User
   participant SB as SubBoost
   participant C as Uuwu Connect
+  participant A as Account Center
   participant Z as Zitadel
   participant DB as SubBoost DB
 
@@ -400,11 +596,21 @@ sequenceDiagram
   U->>C: GET /oauth/v2/authorize
   C->>Z: Proxy authorize / load auth request
   Z-->>C: authRequest
-  C-->>U: Show Uuwu login/register
-  U->>C: Submit credentials or register
-  C->>Z: Create/update session
-  Z-->>C: session token / factors
-  C->>Z: Finalize auth request with session
+  C->>C: No Connect SSO
+  C-->>U: 302 Account /login?auth_request=...
+  U->>A: GET /login
+  U->>A: POST /api/login (loginName, password)
+  A->>Z: createPasswordSession
+  Z-->>A: sessionId, sessionToken
+  A->>A: issueHandoff (store hash, TTL 60s)
+  A-->>U: 302 Connect /login/handoff?code=...
+  U->>C: GET /login/handoff
+  C->>A: POST /api/handoff/consume (internal token)
+  A-->>C: session payload
+  C->>C: Establish Connect SSO (server store)
+  C-->>U: Show consent (user + scopes)
+  U->>C: Allow
+  C->>Z: Finalize auth request
   Z-->>C: callback URL with code/state
   C-->>U: 302 to SubBoost callback
   U->>SB: GET /callback?code&state
@@ -506,7 +712,9 @@ sequenceDiagram
 
 | 编号 | In Scope |
 |---|---|
-| B-I-001 | Connect/Login App 的 Uuwu 品牌页面：登录、注册、密码重置、账号选择、授权确认、logout、错误页 |
+| B-I-001 | Connect 品牌页面：**SSO/consent/授权确认**、账号选择、logout、错误页、handoff 入口；**不收密码**（fallback 除外）；**注册、密码登录、密码重置归 Account**（Connect 仅跳转，见 `moauth_prd.md` §4.1、ADR-009） |
+| B-I-001a | Account Center P2：`/login`、`/register`、`/forgot-password`；`POST /api/login`、`/api/handoff/issue`、`/api/handoff/consume`（Connect only） |
+| B-I-001b | Login Handoff store：issue/consume 原子语义；code hash；IC-013 错误码矩阵 |
 | B-I-002 | Connect/Login App 对 Zitadel OIDC endpoints 的代理与 Session API 服务端调用 |
 | B-I-003 | SubBoost OIDC client 集成与本地 session 建立 |
 | B-I-004 | SubBoost `uuwu_subject_id` 绑定、allowlist/invite 策略 |
@@ -520,7 +728,9 @@ sequenceDiagram
 | 编号 | Out of Scope | 不做理由 |
 |---|---|---|
 | B-O-001 | OAuth2/OIDC 协议栈自研 | 安全与兼容风险高 |
-| B-O-002 | Zitadel Session Token 给业务应用直接消费 | 令牌语义错误，破坏边界 |
+| B-O-002 | Zitadel Session Token 给业务应用或浏览器直接消费 | 令牌语义错误，破坏边界 |
+| B-O-002a | Connect 目标态展示密码表单 | 违背 Account/Connect 分责；仅 `CONNECT_PASSWORD_LOGIN_FALLBACK` 允许 |
+| B-O-002b | handoff `sessionToken` 经浏览器 query/cookie 传递 | 扩大泄漏面；必须 server-to-server consume |
 | B-O-003 | SubBoost 业务权限迁移到 Zitadel | 身份与业务授权职责分离 |
 | B-O-004 | 第三方开发者开放平台注册与审核 | 超出 MVP |
 | B-O-005 | 跨所有应用即时强制本地 session 注销 | 需 back-channel/front-channel logout 与应用适配，后续增强 |
