@@ -1,29 +1,14 @@
-# Developer identity (local only)
+# Trellis local runtime — mirrored in repo root .gitignore for discoverability.
+
 .developer
-
-# Current task pointer (each dev works on different task)
 .current-task
-
-# Ralph Loop state file
 .ralph-state.json
-
-# Agent runtime files
 .agents/
 .agent-log
 .session-id
-
-# Task directory runtime files
 .plan-log
-
-# Atomic update temp files
 *.tmp
-
-# Update backup directories
-.backup-*
-
-# Conflict resolution temp files
+.backup-*/
 *.new
-
-# Python cache
 **/__pycache__/
 **/*.pyc

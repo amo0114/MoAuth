@@ -1,18 +1,36 @@
-.ace-tool/
+# --- Dependencies ---
 node_modules/
 **/node_modules/
+
+# --- Build & test artifacts ---
 .next/
 **/.next/
-coverage/
+out/
 dist/
-*.log
+coverage/
+**/coverage/
+**/test-results/
+playwright-report/
 *.tsbuildinfo
+next-env.d.ts
+
+# --- Environment & secrets ---
+# Ignore real env files; keep *.example templates committable.
 .env
-.env.local
-.env.*.local
-**/.env
-**/.env.local
-**/.env.*.local
+.env.*
+!.env.example
+*.pem
+self-hosted/zitadel/bootstrap/*.pat
+self-hosted/zitadel/bootstrap/*machinekey*.json
+
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Trellis local runtime (see also .trellis/.gitignore) ---
 .trellis/.developer
 .trellis/.current-task
 .trellis/.ralph-state.json
@@ -21,3 +39,31 @@ dist/
 .trellis/.session-id
 .trellis/**/__pycache__/
 .trellis/**/*.pyc
+.trellis/**/*.tmp
+.trellis/**/.backup-*/
+.trellis/**/*.new
+.trellis/**/.plan-log
+
+# --- AI assistant local state (not repo config) ---
+# Keep .agents/ and .codex/ tracked — they are project workflow config.
+.ace-tool/
+.agent/
+.claude/
+
+# --- Tooling / stray lockfiles ---
+# Monorepo uses root package-lock.json; ignore accidental per-app pnpm locks.
+apps/*/pnpm-lock.yaml
+
+# --- OS & editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Local assets & scratch ---
+image/
+.tmp/
+tmp/
+packages/handoff-store/handoff-store

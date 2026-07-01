@@ -1,0 +1,3 @@
+.env
+bootstrap/*.pat
+bootstrap/*machinekey*.json
