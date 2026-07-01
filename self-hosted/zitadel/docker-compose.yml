@@ -1,0 +1,83 @@
+name: moauth-zitadel
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${ZITADEL_POSTGRES_PASSWORD:?must be set in .env}
+      POSTGRES_DB: zitadel
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - moauth-net
+
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:v4.15.3
+    restart: unless-stopped
+    command: >
+      start-from-init
+      --masterkey "${ZITADEL_MASTERKEY:?must be set in .env}"
+      --tlsMode disabled
+    environment:
+      ZITADEL_MASTERKEY: ${ZITADEL_MASTERKEY:?must be set in .env}
+      ZITADEL_EXTERNALDOMAIN: ${ZITADEL_EXTERNALDOMAIN:-127.0.0.1.sslip.io}
+      ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNALPORT:-8081}
+      ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNALSECURE:-false}
+      ZITADEL_TLS_ENABLED: false
+
+      ZITADEL_DATABASE_POSTGRES_HOST: postgres
+      ZITADEL_DATABASE_POSTGRES_PORT: 5432
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${ZITADEL_POSTGRES_PASSWORD:?must be set in .env}
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: postgres
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${ZITADEL_POSTGRES_PASSWORD:?must be set in .env}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+
+      ZITADEL_FIRSTINSTANCE_ORG_NAME: ${ZITADEL_ORG_NAME:-MoAuth}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: ${ZITADEL_BOOTSTRAP_USERNAME:-admin}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: ${ZITADEL_BOOTSTRAP_PASSWORD:?must be set in .env}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: "false"
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL: ${ZITADEL_BOOTSTRAP_EMAIL:-admin@127.0.0.1.sslip.io}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAILVERIFIED: "true"
+
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: ${ZITADEL_SERVICE_USER:-connect-service}
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: MoAuth Connect Service
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "2299-12-31T23:59:59Z"
+      ZITADEL_FIRSTINSTANCE_PATPATH: /bootstrap/connect-service.pat
+      ZITADEL_FIRSTINSTANCE_MACHINEKEYPATH: /bootstrap/connect-service-machinekey.json
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINEKEY_TYPE: "1"
+
+      ZITADEL_LOGSTORE_ACCESS_STDOUT_ENABLED: "true"
+      ZITADEL_LOG_LEVEL: info
+    volumes:
+      - ./bootstrap:/bootstrap:rw
+    ports:
+      - "${ZITADEL_EXTERNALPORT:-8081}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/zitadel", "ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    networks:
+      - moauth-net
+
+volumes:
+  postgres_data:
+    name: moauth_zitadel_postgres_data
+
+networks:
+  moauth-net:
+    name: moauth_zitadel_net
