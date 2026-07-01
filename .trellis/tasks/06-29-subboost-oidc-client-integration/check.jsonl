@@ -1,0 +1,9 @@
+{"file": ".claude/commands/trellis/finish-work.md", "reason": "Finish work checklist"}
+{"file": ".claude/commands/trellis/check.md", "reason": "Code quality check spec"}
+{"file": ".trellis/spec/identity/index.md", "reason": "Check identity boundary compliance"}
+{"file": "docs/oidc_client_contract.md", "reason": "Check OIDC client contract compliance"}
+{"file": "docs/subboost_oidc_integration_baseline.md", "reason": "Check SubBoost auth boundary and local session reuse"}
+{"file": "external/subboost/local/app/api/auth/moauth/moauth-oidc-routes.test.ts", "reason": "9 focused OIDC route tests: login redirect+tx cookie, missing tx rejection, state mismatch, LOGIN_EXISTING success, BIND_AND_LOGIN email fallback, access denied, ID token verification failure, nonce mismatch, userinfo subject mismatch"}
+{"file": "external/subboost/local/app/api/auth/moauth/callback/route.ts", "reason": "Checked callback route: state/nonce/issuer/audience/userinfo subject validation, allowlist provisioning, local session reuse"}
+{"file": "external/subboost/local/app/api/auth/moauth/login/route.ts", "reason": "Checked login route: PKCE verifier/challenge, signed HttpOnly SameSite=Lax tx cookie, no verifier exposure to JS"}
+{"file": "external/subboost/local/src/lib/moauth-oidc.ts", "reason": "Checked tx cookie library: HMAC-SHA256 signature, expiry, version, format validation"}

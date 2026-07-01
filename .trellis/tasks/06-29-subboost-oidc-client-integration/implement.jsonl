@@ -1,0 +1,18 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/identity/index.md", "reason": "Identity architecture rules: OIDC+PKCE, local app sessions, SubBoost allowlist boundary"}
+{"file": "docs/oidc_client_contract.md", "reason": "Reusable OIDC client contract for SubBoost and future apps"}
+{"file": "docs/subboost_oidc_integration_baseline.md", "reason": "SubBoost local auth analysis and recommended OIDC integration shape"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer auth flow checklist"}
+{"file": "docs/uuwu_06_interface_contracts_boundaries.md", "reason": "Interface contracts for authorize, token, userinfo, SubBoost login start and callback"}
+{"file": "external/subboost/local/src/lib/moauth-oidc.ts", "reason": "Created HMAC-signed transaction cookie library (state/nonce/codeVerifier/redirectUri) with MoauthTxError + cookie options"}
+{"file": "external/subboost/local/src/lib/env.ts", "reason": "Added getMoauthConnectIssuer/getMoauthClientId/getMoauthClientSecret env helpers"}
+{"file": "external/subboost/local/app/api/auth/moauth/login/route.ts", "reason": "Created login start route: PKCE verifier/challenge, state, nonce, signed tx cookie, 302 to Connect authorize"}
+{"file": "external/subboost/local/app/api/auth/moauth/callback/route.ts", "reason": "Created callback route: state validation, code+PKCE exchange, JWKS ID token verify (issuer/audience/nonce/clockTolerance), userinfo subject cross-check, allowlist provisioning (LOGIN_EXISTING/BIND_AND_LOGIN/DENY), local session cookie"}
+{"file": "external/subboost/local/prisma/schema.prisma", "reason": "Added LocalAdmin.identitySubjectId String? @unique column for OIDC subject binding"}
+{"file": "external/subboost/local/prisma/migrations/20260629000000_local_admin_identity_binding/migration.sql", "reason": "Prisma migration adding identitySubjectId column with unique index"}
+{"file": "external/subboost/local/src/components/local-login.tsx", "reason": "Added '使用 MoAuth 账号登录' anchor to /api/auth/moauth/login in local login UI"}
+{"file": "external/subboost/package.json", "reason": "Added @moauth/connect-contract file dependency + jose v6.2.3 + vitest v4.1.7 devDep"}
+{"file": "external/subboost/vitest.config.ts", "reason": "Added @moauth/connect-contract alias to resolve connect-contract src"}
+{"file": "external/subboost/local/package.json", "reason": "Workspace package metadata"}

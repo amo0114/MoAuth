@@ -49,7 +49,8 @@
     "06-28-define-reusable-oidc-client-contract",
     "06-28-analyze-subboost-oidc-integration",
     "06-28-scaffold-uuwu-connect-app",
-    "06-29-connect-login-password-flow-and-account-selection"
+    "06-29-connect-login-password-flow-and-account-selection",
+    "06-29-subboost-oidc-client-integration"
   ],
   "parent": null,
   "relatedFiles": [],

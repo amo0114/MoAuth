@@ -1,0 +1,66 @@
+{
+  "id": "subboost-oidc-client-integration",
+  "name": "subboost-oidc-client-integration",
+  "title": "SubBoost OIDC client integration",
+  "description": "Implement a minimal real SubBoost OIDC client flow against MoAuth Connect: login start, callback, PKCE/state/nonce validation, local admin binding/allowlist semantics, and reuse of SubBoost local session.",
+  "status": "review",
+  "dev_type": "fullstack",
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "codex-agent",
+  "assignee": "codex-agent",
+  "createdAt": "2026-06-29",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 5,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "brainstorm"
+    },
+    {
+      "phase": 2,
+      "action": "research"
+    },
+    {
+      "phase": 3,
+      "action": "implement"
+    },
+    {
+      "phase": 4,
+      "action": "check"
+    },
+    {
+      "phase": 5,
+      "action": "update-spec"
+    },
+    {
+      "phase": 6,
+      "action": "record-session"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "06-28-uuwu-connect-mvp-foundation",
+  "relatedFiles": [
+    "external/subboost/local/app/api/auth/moauth/login/route.ts",
+    "external/subboost/local/app/api/auth/moauth/callback/route.ts",
+    "external/subboost/local/app/api/auth/moauth/moauth-oidc-routes.test.ts",
+    "external/subboost/local/src/lib/moauth-oidc.ts",
+    "external/subboost/local/src/lib/env.ts",
+    "external/subboost/local/src/components/local-login.tsx",
+    "external/subboost/local/prisma/schema.prisma",
+    "external/subboost/local/prisma/migrations/20260629000000_local_admin_identity_binding/migration.sql",
+    "external/subboost/package.json",
+    "external/subboost/package-lock.json",
+    "external/subboost/vitest.config.ts",
+    "external/subboost/local/package.json"
+  ],
+  "notes": "Implementation complete. OIDC login start + callback routes added with PKCE/state/nonce validation, JWKS ID token verification, userinfo subject cross-check, and allowlist provisioning via @moauth/connect-contract. LocalAdmin.identitySubjectId column added via Prisma migration. Local login UI now shows 'MoAuth 账号登录' action. 9/9 OIDC route tests pass; local lint + typecheck pass. Ready for commit.",
+  "meta": {}
+}
