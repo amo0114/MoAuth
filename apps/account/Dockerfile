@@ -11,6 +11,12 @@ RUN npm ci
 
 FROM deps AS builder
 
+# Build-time placeholders let Next collect route data in a clean Docker context.
+# The runner stage receives real production values from docker compose/runtime env.
+ENV MOAUTH_ACCOUNT_SESSION_SECRET=docker-build-account-session-secret
+ENV MOAUTH_HANDOFF_INTERNAL_TOKEN=docker-build-handoff-token
+ENV MOAUTH_HANDOFF_STORE_SECRET=docker-build-handoff-store-secret
+
 RUN npm --workspace @moauth/account run build
 
 FROM node:20-bookworm-slim AS runner
