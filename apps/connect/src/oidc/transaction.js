@@ -1,6 +1,8 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { OidcContractError } from "@moauth/connect-contract";
 
+import { getRuntimeSecret } from "../config/env.js";
+
 export const LOGIN_TRANSACTION_COOKIE = "moauth_connect_tx";
 export const LOGIN_TRANSACTION_TTL_SECONDS = 10 * 60;
 
@@ -83,7 +85,7 @@ export function getLoginTransactionCookieOptions(requestUrl) {
 }
 
 export function getTransactionSecret() {
-  return process.env.MOAUTH_CONNECT_TRANSACTION_SECRET || DEV_TRANSACTION_SECRET;
+  return getRuntimeSecret("MOAUTH_CONNECT_TRANSACTION_SECRET", DEV_TRANSACTION_SECRET);
 }
 
 function signPayload(payload, secret) {

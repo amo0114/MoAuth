@@ -11,14 +11,42 @@
   },
   "scripts": {
     "dev:connect": "npm --workspace @moauth/connect run dev",
+    "dev:account": "npm --workspace @moauth/account run dev",
+    "dev:account:clean": "npm --workspace @moauth/account run dev:clean",
     "build:connect": "npm --workspace @moauth/connect run build",
+    "build:account": "npm --workspace @moauth/account run build",
+    "start:connect": "npm --workspace @moauth/connect run start",
+    "start:account": "npm --workspace @moauth/account run start",
+    "benchmark:ssr": "node scripts/benchmark-ssr-latency.mjs",
+    "benchmark:ssr:dev": "node scripts/benchmark-ssr-latency.mjs --label dev",
+    "benchmark:ssr:start": "node scripts/benchmark-ssr-latency.mjs --label start",
+    "benchmark:full-chain": "node scripts/benchmark-full-chain-latency.mjs --rounds 5 --login admin",
     "test": "npm run test --workspaces --if-present",
     "test:connect": "npm --workspace @moauth/connect run test",
-    "test:connect-contract": "npm --workspace @moauth/connect-contract run test"
+    "test:connect-contract": "npm --workspace @moauth/connect-contract run test",
+    "test:zitadel-client": "npm --workspace @moauth/zitadel-client run test",
+    "test:handoff-store": "npm --workspace @moauth/handoff-store run test",
+    "test:authorized-apps-store": "npm --workspace @moauth/authorized-apps-store run test",
+    "test:client-registry-store": "npm --workspace @moauth/client-registry-store run test",
+    "test:audit-store": "npm --workspace @moauth/audit-store run test",
+    "test:account": "npm --workspace @moauth/account run test",
+    "test:e2e": "npm --workspace @moauth/e2e-acceptance run test",
+    "test:browser-e2e": "npm --workspace @moauth/browser-e2e run test",
+    "e2e:live": "node scripts/e2e-handoff-live.mjs",
+    "test:account-health-probe": "node scripts/test-account-health-probe.mjs",
+    "test:acceptance": "npm run test:handoff-store && npm run test:authorized-apps-store && npm run test:audit-store && npm run test:zitadel-client && npm run test:account && npm run test:connect && npm run test:e2e",
+    "test:oidc-gates": "node --test scripts/test/oidc-production-gates.test.js",
+    "moauth:generate-signing-keys": "node scripts/generate-connect-signing-keys.mjs",
+    "moauth:verify-oidc": "node scripts/verify-oidc.mjs",
+    "moauth:verify-oidc:release": "node scripts/verify-oidc.mjs --strict-live",
+    "test:ci": "npm run test:acceptance && npm run test:client-registry-store && npm run test:connect-contract && npm run test:oidc-gates && MOAUTH_CONNECT_ISSUER=${MOAUTH_CONNECT_ISSUER:-http://127.0.0.1:3000} npm run moauth:verify-oidc -- --static-only"
   },
   "overrides": {
     "next": {
       "postcss": "8.5.15"
     }
+  },
+  "dependencies": {
+    "@radix-ui/react-switch": "^1.3.2"
   }
 }

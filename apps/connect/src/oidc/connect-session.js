@@ -1,19 +1,16 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { OidcContractError } from "@moauth/connect-contract";
 
+import { getRuntimeSecret } from "../config/env.js";
+import { loadConnectSessionRecord, saveConnectSessionRecord } from "./connect-session-store.js";
+
 export const CONNECT_SESSION_COOKIE = "moauth_connect_session";
 export const CONNECT_SESSION_TTL_SECONDS = 30 * 60;
 
 const VERSION = 1;
 const DEV_SESSION_SECRET = "moauth-connect-dev-session-secret-change-me";
 
-export function createConnectSession({ authRequestId, session, loginName, now = new Date() }) {
-  if (!authRequestId) {
-    throw new OidcContractError(
-      "CONNECT_SESSION_INVALID",
-      "Connect session requires an authRequest id."
-    );
-  }
+export function createConnectSession({ authRequestId = null, session, loginName, email = null, sub = null, now = new Date() }) {
   if (!session?.sessionId) {
     throw new OidcContractError(
       "CONNECT_SESSION_INVALID",
@@ -24,19 +21,36 @@ export function createConnectSession({ authRequestId, session, loginName, now = 
   return Object.freeze({
     version: VERSION,
     id: randomUUID(),
-    authRequestId,
+    authRequestId: authRequestId || null,
     sessionId: session.sessionId,
     sessionToken: session.sessionToken || null,
     loginName: loginName || session.loginName || null,
+    email: email || session.email || null,
+    sub: sub || session.sub || null,
     createdAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + CONNECT_SESSION_TTL_SECONDS * 1000).toISOString(),
   });
 }
 
+export function createConnectSsoSession({ session, loginName, email = null, sub = null, now = new Date() }) {
+  return createConnectSession({ session, loginName, email, sub, now });
+}
+
+export function readOptionalConnectSession(cookieValue, now = new Date(), secret = getSessionSecret()) {
+  if (!cookieValue) {
+    return null;
+  }
+  try {
+    return readConnectSessionFromCookie(cookieValue, now, secret);
+  } catch {
+    return null;
+  }
+}
+
 export function signConnectSession(session, secret = getSessionSecret()) {
-  const payload = base64UrlEncode(JSON.stringify(session));
-  const signature = signPayload(payload, secret);
-  return `${payload}.${signature}`;
+  const opaqueId = saveConnectSessionRecord(session);
+  const signature = signPayload(opaqueId, secret);
+  return `${opaqueId}.${signature}`;
 }
 
 export function readConnectSessionFromCookie(cookieValue, now = new Date(), secret = getSessionSecret()) {
@@ -44,29 +58,22 @@ export function readConnectSessionFromCookie(cookieValue, now = new Date(), secr
     throw new OidcContractError("CONNECT_SESSION_REQUIRED", "Connect session cookie is required.");
   }
 
-  const [payload, signature, extra] = String(cookieValue).split(".");
-  if (!payload || !signature || extra) {
+  const [opaqueId, signature, extra] = String(cookieValue).split(".");
+  if (!opaqueId || !signature || extra) {
     throw invalidSession("Connect session cookie format is invalid.");
   }
 
-  const expectedSignature = signPayload(payload, secret);
+  const expectedSignature = signPayload(opaqueId, secret);
   if (!safeEqual(signature, expectedSignature)) {
     throw invalidSession("Connect session cookie signature is invalid.");
   }
 
-  const session = parsePayload(payload);
+  const session = loadConnectSessionRecord(opaqueId, now);
   if (session.version !== VERSION) {
     throw invalidSession("Connect session version is unsupported.");
   }
-  if (new Date(session.expiresAt).getTime() <= now.getTime()) {
-    throw new OidcContractError(
-      "CONNECT_SESSION_EXPIRED",
-      "Connect session has expired.",
-      { expiresAt: session.expiresAt }
-    );
-  }
 
-  return Object.freeze(session);
+  return session;
 }
 
 export function getConnectSessionCookieOptions(requestUrl) {
@@ -92,19 +99,11 @@ export function clearConnectSessionCookieOptions(requestUrl) {
 }
 
 export function getSessionSecret() {
-  return process.env.MOAUTH_CONNECT_SESSION_SECRET || DEV_SESSION_SECRET;
+  return getRuntimeSecret("MOAUTH_CONNECT_SESSION_SECRET", DEV_SESSION_SECRET);
 }
 
 function signPayload(payload, secret) {
   return base64UrlEncode(createHmac("sha256", secret).update(payload).digest());
-}
-
-function parsePayload(payload) {
-  try {
-    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-  } catch {
-    throw invalidSession("Connect session payload is invalid.");
-  }
 }
 
 function safeEqual(left, right) {

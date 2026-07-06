@@ -4,12 +4,15 @@ import {
   ZITADEL_ERROR_CODES,
   isZitadelConfigured,
 } from "../../../src/config/zitadel.js";
+import { loadAuthRequestInfo } from "../../../src/oidc/auth-request-info.js";
+import { normalizeClientCallbackUrl } from "../../../src/oidc/client-callback-url.js";
 import {
   assertAuthRequestId,
   createPasswordSession,
   finalizeAuthRequest,
   getAuthRequest,
 } from "../../../src/oidc/session.js";
+import { getConnectPasswordLoginGate } from "../../../src/oidc/password-login-policy.js";
 import {
   CONNECT_SESSION_COOKIE,
   clearConnectSessionCookieOptions,
@@ -21,6 +24,15 @@ import {
 
 export async function POST(request) {
   const url = new URL(request.url);
+
+  const passwordLoginGate = getConnectPasswordLoginGate();
+  if (!passwordLoginGate.allowed) {
+    return jsonError(url, {
+      code: passwordLoginGate.code,
+      message: passwordLoginGate.message,
+      status: passwordLoginGate.status,
+    });
+  }
 
   if (!isZitadelConfigured()) {
     return jsonError(url, {
@@ -68,7 +80,7 @@ export async function POST(request) {
 
   let session;
   try {
-    session = await createPasswordSession(authRequestId, { loginName, password });
+    session = await createPasswordSession({ loginName, password });
   } catch (error) {
     return jsonError(url, {
       code: error.code,
@@ -77,10 +89,16 @@ export async function POST(request) {
     });
   }
 
+  const authRequestInfo = await loadAuthRequestInfo(authRequestId);
+
   let callbackUrl;
   try {
-    const finalized = await finalizeAuthRequest(authRequestId, session);
-    callbackUrl = finalized.callbackUrl;
+    const finalized = await finalizeAuthRequest({
+      authRequestId,
+      sessionId: session.sessionId,
+      sessionToken: session.sessionToken,
+    });
+    callbackUrl = normalizeClientCallbackUrl(finalized.callbackUrl, authRequestInfo);
   } catch (error) {
     return jsonOk(url, {
       status: "SESSION_CREATED_PENDING_FINALIZE",
@@ -158,15 +176,12 @@ function jsonError(url, { code, message, status }) {
 function statusFor(error) {
   if (error.code === ZITADEL_ERROR_CODES.ZITADEL_UNAUTHORIZED) return 502;
   if (error.code === ZITADEL_ERROR_CODES.ZITADEL_NOT_CONFIGURED) return 503;
-  if (
-    error.code === ZITADEL_ERROR_CODES.ZITADEL_REQUEST_FAILED &&
-    error.details?.status === 401
-  ) {
-    return 401;
-  }
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_CREDENTIALS_INVALID) return 401;
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_PASSWORD_COMPLEXITY) return 422;
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_ACCOUNT_LOCKED) return 403;
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_RATE_LIMITED) return 429;
   if (error.code === ZITADEL_ERROR_CODES.ZITADEL_SESSION_NOT_CREATED) {
-    const status = error.details?.status;
-    if (status === 401 || status === 403 || status === 422) return 401;
+    return 502;
   }
   return 502;
 }
@@ -181,8 +196,20 @@ function humanizeZitadelError(error) {
   if (error.code === ZITADEL_ERROR_CODES.ZITADEL_AUTH_REQUEST_NOT_READY) {
     return "账号验证已完成，但还需要补齐 MFA/Passkey 等策略后才能继续。";
   }
-  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_SESSION_NOT_CREATED) {
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_CREDENTIALS_INVALID) {
     return "账号或密码不正确，请重试。";
+  }
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_PASSWORD_COMPLEXITY) {
+    return "密码不符合复杂度要求，请检查长度、大小写与符号后重试。";
+  }
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_ACCOUNT_LOCKED) {
+    return "账号已锁定，请联系管理员解锁后再试。";
+  }
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_RATE_LIMITED) {
+    return "登录尝试过于频繁，请稍后再试。";
+  }
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_SESSION_NOT_CREATED) {
+    return "无法建立会话，请稍后重试。";
   }
   return error.message;
 }

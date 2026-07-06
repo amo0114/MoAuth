@@ -1,24 +1,15 @@
-import { validateRegisteredClient } from "@moauth/connect-contract";
+import { getClientRegistryStore } from "../client-registry/store.js";
 
-const CLIENTS = [
-  validateRegisteredClient(
-    {
-      clientId: "379513141119169040",
-      displayName: "SubBoost",
-      clientType: "confidential",
-      redirectUris: ["http://127.0.0.1:3001/api/auth/moauth/callback"],
-      allowedScopes: ["openid", "profile", "email"],
-      allowedPrompts: ["login", "select_account", "consent"],
-      provisioningPolicy: "allowlist",
-    },
-    { allowLoopbackHttp: true }
-  ),
-];
+function connectLookupOptions() {
+  return {
+    allowLoopbackHttp: process.env.NODE_ENV !== "production",
+  };
+}
 
 export function findClientById(clientId) {
-  return CLIENTS.find((client) => client.clientId === clientId) || null;
+  return getClientRegistryStore().findActiveConnectClient(clientId, connectLookupOptions());
 }
 
 export function listRegisteredClients() {
-  return [...CLIENTS];
+  return getClientRegistryStore().listActiveConnectClients(connectLookupOptions());
 }

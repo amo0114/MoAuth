@@ -1,9 +1,9 @@
 # Uuwu Unified Identity / Connect 交付文档包
 
-**版本**：v1.0  
-**交付身份**：乙方解决方案架构师 / 企业架构师  
-**目标用途**：需求确认、合同谈判、项目启动、技术评审、实施指导  
-**输入基线**：甲方《Uuwu Unified Identity / Connect Requirements Draft》  
+**版本**：v1.0
+**交付身份**：乙方解决方案架构师 / 企业架构师
+**目标用途**：需求确认、合同谈判、项目启动、技术评审、实施指导
+**输入基线**：甲方《Uuwu Unified Identity / Connect Requirements Draft》
 **输出格式**：Markdown 分卷文档，可直接纳入 Git 仓库进行版本控制。
 
 ---
@@ -13,6 +13,8 @@
 | 文件 | 内容 | 建议评审对象 |
 |---|---|---|
 | **`moauth_prd.md`** | **PRD v2.0（产品主基线）**：产品矩阵、Connect/Account/Console 职责、分阶段路线、会签级 FR | **全体评审参与方（优先）** |
+| **`moauth_product_guide.md`** | **产品使用指南**：产品定义、架构、特性、本地启动、接入、部署与验收（面向研发/运维/接入方） | 研发、运维、业务应用负责人 |
+| **`guides/moauth-app-onboarding-monexus.md`** | **应用接入教程（MoNexus 示例）**：Zitadel/Connect 注册、OIDC 路由、token 校验、provisioning、联调与上线 | 新业务应用研发 |
 | `uuwu_00_index.md` | 文档包索引、基线结论、评审顺序、参考基线、版本管理建议 | 全体评审参与方 |
 | `uuwu_01_executive_summary.md` | 执行摘要、需求理解、假设约束、风险、澄清问题 | 甲方决策层、产品负责人、技术负责人 |
 | `uuwu_02_prd.md` | 专业 PRD v1（历史稿）；与 `moauth_prd.md` 冲突时以 v2 为准 | 产品、研发、测试、安全、运维 |

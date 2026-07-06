@@ -7,10 +7,16 @@
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 3000",
-    "test": "node --test test/*.test.js"
+    "test": "env -u MOAUTH_CONNECT_ID_TOKEN_SIGNING_MODE -u MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY -u MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY_FILE -u MOAUTH_CONNECT_ID_TOKEN_SIGNING_SECRET -u MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID -u MOAUTH_CONNECT_ID_TOKEN_SIGNING_ALG NODE_ENV=test node --test test/*.test.js"
   },
   "dependencies": {
+    "@moauth/client-registry-store": "file:../../packages/client-registry-store",
     "@moauth/connect-contract": "file:../../packages/connect-contract",
+    "@moauth/audit-store": "file:../../packages/audit-store",
+    "@moauth/authorized-apps-store": "file:../../packages/authorized-apps-store",
+    "@moauth/handoff-store": "file:../../packages/handoff-store",
+    "@moauth/zitadel-client": "file:../../packages/zitadel-client",
+    "jose": "^6.2.3",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
     "react": "^19.0.0",

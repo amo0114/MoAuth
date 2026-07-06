@@ -1,0 +1,65 @@
+FROM node:22-alpine AS deps
+
+WORKDIR /workspace
+RUN apk add --no-cache openssl
+
+COPY packages/connect-contract packages/connect-contract
+COPY external/subboost/package.json external/subboost/package-lock.json external/subboost/
+COPY external/subboost/packages external/subboost/packages
+COPY external/subboost/local/package.json external/subboost/local/package.json
+
+WORKDIR /workspace/external/subboost
+RUN npm ci
+
+FROM node:22-alpine AS builder
+
+WORKDIR /workspace
+RUN apk add --no-cache openssl
+
+ARG APP_RELEASE_VERSION=
+ARG APP_BUILD_SHA=
+ARG APP_VERSION=
+ARG APP_VERSION_TOKEN=
+ENV APP_RELEASE_VERSION=${APP_RELEASE_VERSION}
+ENV APP_BUILD_SHA=${APP_BUILD_SHA}
+ENV APP_VERSION=${APP_VERSION}
+ENV APP_VERSION_TOKEN=${APP_VERSION_TOKEN}
+
+COPY --from=deps /workspace/external/subboost/node_modules external/subboost/node_modules
+COPY packages/connect-contract packages/connect-contract
+COPY external/subboost external/subboost
+
+WORKDIR /workspace/external/subboost/local
+RUN npm run build
+
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+ARG APP_RELEASE_VERSION=
+ARG APP_BUILD_SHA=
+ARG APP_VERSION=
+ARG APP_VERSION_TOKEN=
+ENV APP_RELEASE_VERSION=${APP_RELEASE_VERSION}
+ENV APP_BUILD_SHA=${APP_BUILD_SHA}
+ENV APP_VERSION=${APP_VERSION}
+ENV APP_VERSION_TOKEN=${APP_VERSION_TOKEN}
+
+RUN apk add --no-cache openssl
+
+COPY --from=deps /workspace/external/subboost/node_modules ./node_modules
+COPY --from=builder /workspace/external/subboost/local/.next/standalone ./
+COPY --from=builder /workspace/external/subboost/local/.next/static local/.next/static
+COPY --from=builder /workspace/external/subboost/local/public local/public
+COPY --from=builder /workspace/external/subboost/local/prisma.config.ts local/prisma.config.ts
+COPY --from=builder /workspace/external/subboost/local/prisma local/prisma
+
+RUN if [ ! -e local/node_modules ]; then ln -s ../node_modules local/node_modules; fi
+
+WORKDIR /app/local
+EXPOSE 3000
+
+CMD ["sh", "-c", "../node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma && node server.js"]

@@ -42,6 +42,8 @@ export function buildDiscoveryMetadata(input) {
     claims_supported: [...STANDARD_OIDC_CLAIMS],
     code_challenge_methods_supported: [PKCE_CHALLENGE_METHOD],
     subject_types_supported: ["public"],
+    // Formal contract: RS256 via upstream JWKS. Live discovery may annotate HS256 when
+    // MOAUTH_CONNECT_ID_TOKEN_SIGNING_SECRET enables dev-only Connect re-sign (see proxy-core).
     id_token_signing_alg_values_supported: ["RS256"],
   };
 }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { resetClientRegistryStoreForTests } from "../src/client-registry/store.js";
 import { listRegisteredClients } from "../src/config/clients.js";
 import { getDiscoveryMetadata } from "../src/oidc/discovery.js";
 import { parseAuthorizeRequest, resolveAuthorizeRequest } from "../src/oidc/authorize.js";
@@ -11,13 +12,17 @@ import {
   signLoginTransaction,
 } from "../src/oidc/transaction.js";
 
-const SUBBOOST_DEV_CLIENT_ID = "379513141119169040";
+const SUBBOOST_DEV_CLIENT_ID = "380559739236450307";
 const VALID_CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+
+test.beforeEach(() => {
+  resetClientRegistryStoreForTests();
+});
 
 test("publishes Connect OIDC discovery metadata", () => {
   const metadata = getDiscoveryMetadata();
-  assert.equal(metadata.issuer, "http://localhost:3000");
-  assert.equal(metadata.authorization_endpoint, "http://localhost:3000/oauth/v2/authorize");
+  assert.equal(metadata.issuer, "http://127.0.0.1:3000");
+  assert.equal(metadata.authorization_endpoint, "http://127.0.0.1:3000/oauth/v2/authorize");
   assert.deepEqual(metadata.code_challenge_methods_supported, ["S256"]);
 });
 

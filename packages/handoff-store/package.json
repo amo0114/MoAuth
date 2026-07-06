@@ -1,0 +1,13 @@
+{
+  "name": "@moauth/handoff-store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Login handoff code store for Account → Connect session transfer.",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

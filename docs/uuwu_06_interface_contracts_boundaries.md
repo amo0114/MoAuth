@@ -345,6 +345,7 @@ Correct:
 | `none` | 无 SSO → OIDC `error=login_required`（不展示交互页） |
 | `consent` | 强制展示 consent |
 | `select_account` | P5：302 Account 账号选择 |
+| authorized-apps 不可用 | **fail-closed**：Connect 503 + `AUTHORIZED_APPS_UNAVAILABLE`；禁止静默 finalize，禁止降级展示 consent |
 
 #### IC-013：Login Handoff（Account → Connect）
 
@@ -501,7 +502,7 @@ Correct:
 | 请求体 | `{ "authRequestId", "loginName", "password" }` |
 | 成功行为 | 调共享 `createPasswordSession` → `issueHandoff` → `302` Connect `/login/handoff?code=...&auth_request=...` |
 | 失败行为 | 展示 Account 品牌错误；**不向 Connect 传递密码** |
-| 边界 | Account **不存密码、不校验 hash**；验证由 Zitadel 完成 |
+| 边界 | Account **不是独立认证源**；通过 **Zitadel Session / AuthRequest API** 完成认证，**认证权威仍属于 Zitadel**；不本地存密码、不自行校验 hash |
 | Cookie | Account 自有 session cookie（`account.*` 域）；Connect **不得读取** |
 | 关联页面 | `/register`、`/forgot-password`（P2 MVP） |
 | 本地端口 | 建议 `3002` |

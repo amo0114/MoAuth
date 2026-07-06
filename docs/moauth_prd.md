@@ -69,8 +69,8 @@ flowchart TB
 
 | 平面 | 域名示例 | 负责 | 不负责 |
 |---|---|---|---|
-| **Account Center** | `account.example.com` | **密码登录**、注册、邮箱验证、忘记密码/重置、已登录改密、资料编辑、MFA/Passkey **管理**、活跃会话查看与撤销、已授权应用查看与撤销；签发 Login Handoff code | OIDC authorize/token 发行、业务权限、应用回调、Connect SSO 管理 |
-| **Connect** | `connect.example.com` | OIDC Discovery/authorize/token/userinfo **代理**、**SSO 会话复用**、授权确认（consent）、账号选择、登出引导、Passkey **登录** ceremony、跳转 Account 登录/注册/找回密码；消费 handoff 建立 Connect SSO | **密码收集与校验**、用户注册表单提交、资料持久化、应用 Client 配置后台 |
+| **Account Center** | `account.example.com` | **密码登录 UI**（通过 Zitadel Session/AuthRequest API 完成认证，认证权威属于 Zitadel）、注册、邮箱验证、忘记密码/重置、已登录改密、资料编辑、MFA/Passkey **管理**、活跃会话查看与撤销、已授权应用查看与撤销；签发短期一次性 Login Handoff | OIDC authorize/token 发行、独立密码认证源、业务权限、应用回调、Connect SSO 管理 |
+| **Connect** | `connect.example.com` | **对外唯一 OIDC issuer**（ADR-010）；Discovery/authorize/token/JWKS/userinfo、**SSO 会话复用**、授权确认（consent）、账号选择、登出引导、Passkey **登录** ceremony、跳转 Account 登录/注册/找回密码；消费 handoff 建立 Connect SSO | **密码收集与校验**、用户注册表单提交、资料持久化、应用 Client 配置后台 |
 | **应用管理后台（Console）** | `admin.example.com` | 创建/编辑/停用 OIDC Client、redirect/logout URI、scopes、应用展示名/logo、每应用 provisioning 策略、环境隔离 | 终端用户自助、业务数据 |
 | **业务应用** | 各应用自有域名 | 发起 OIDC 登录、校验回调、本地 `sub` 映射、本地 session、本地角色权限、按策略拒绝未授权用户 | 密码/MFA 实现、用户主数据、修改 Connect 源码 |
 | **ZITADEL（隐藏）** | 不对公网用户暴露 | 用户存储、协议、令牌、内部 session、邮件触发底层、审计原始事件 | 品牌化 UI、直接作为业务应用 OIDC issuer 暴露给终端用户 |
@@ -78,7 +78,7 @@ flowchart TB
 ### 2.2 关键原则（防踩坑）
 
 1. **身份与权限分离**：统一身份只回答「你是谁」；「你能做什么」由各应用本地策略决定。
-2. **业务应用只认 Connect issuer**：不得直接依赖 ZITADEL 域名、Session Token 或 Management API。
+2. **业务应用只认 Connect issuer（ADR-010）**：discovery `issuer`、`id_token.iss`、`jwks_uri` 均指向 Connect；不得直接依赖 ZITADEL 域名、Session Token 或 Management API。
 3. **映射主键是 `sub`**：禁止用 email 作为跨系统唯一主键。
 4. **Cookie 分域**：Connect、Account、各业务应用各自 session cookie；禁止 `.example.com` 广域业务 cookie。
 5. **新增应用不改 Connect 核心代码**：通过 Console 写入 Client 注册表（DB/配置中心），Connect 运行时读取。

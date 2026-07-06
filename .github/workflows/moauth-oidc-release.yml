@@ -1,0 +1,71 @@
+name: MoAuth OIDC Release Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      connect_issuer:
+        description: Connect issuer URL (staging or production)
+        required: true
+        type: string
+      verify_id_token:
+        description: Optional sample id_token for live signature checks
+        required: false
+        type: string
+      verify_client_id:
+        description: Business client_id for id_token aud check
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-live-oidc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit and static OIDC gates
+        run: npm run test:ci
+
+      - name: Materialize Connect signing key for static gates
+        if: ${{ secrets.MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          printf '%s\n' "${{ secrets.MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY }}" > /tmp/connect-private.pem
+          chmod 600 /tmp/connect-private.pem
+          echo "MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY_FILE=/tmp/connect-private.pem" >> "$GITHUB_ENV"
+
+      - name: Run staging/release live OIDC verification
+        env:
+          NODE_ENV: production
+          MOAUTH_CONNECT_ISSUER: ${{ inputs.connect_issuer || vars.MOAUTH_CONNECT_ISSUER }}
+          MOAUTH_CONNECT_PUBLIC_URL: ${{ inputs.connect_issuer || vars.MOAUTH_CONNECT_PUBLIC_URL || vars.MOAUTH_CONNECT_ISSUER }}
+          MOAUTH_CONNECT_ID_TOKEN_SIGNING_MODE: production-jwks
+          MOAUTH_CONNECT_ID_TOKEN_SIGNING_ALG: ${{ vars.MOAUTH_CONNECT_ID_TOKEN_SIGNING_ALG || 'RS256' }}
+          MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID: ${{ vars.MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID || 'moauth-connect-1' }}
+          MOAUTH_VERIFY_ID_TOKEN: ${{ inputs.verify_id_token || secrets.MOAUTH_VERIFY_ID_TOKEN }}
+          MOAUTH_VERIFY_CLIENT_ID: ${{ inputs.verify_client_id || secrets.MOAUTH_VERIFY_CLIENT_ID }}
+          MOAUTH_AUTHORIZED_APPS_STORE: ${{ vars.MOAUTH_AUTHORIZED_APPS_STORE || 'file' }}
+        run: |
+          if [ -z "${MOAUTH_CONNECT_ISSUER}" ]; then
+            echo "MOAUTH_CONNECT_ISSUER is required for release acceptance."
+            exit 1
+          fi
+          if [ -z "${MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY_FILE}" ] && [ -z "${MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY}" ]; then
+            echo "Configure MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY secret for release static gates."
+            exit 1
+          fi
+          npm run moauth:verify-oidc:release
+
+      - name: Release acceptance note
+        run: |
+          echo "Automated live OIDC checks completed."
+          echo "Complete browser E2E checklist manually: docs/reviews/moauth-release-readiness.md §4"

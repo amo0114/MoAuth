@@ -1,0 +1,71 @@
+name: MoAuth OIDC CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-and-static-oidc-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run workspace unit tests
+        run: npm test
+
+      - name: Run OIDC static gate unit tests
+        run: npm run test:oidc-gates
+
+      - name: Generate ephemeral Connect signing keys
+        run: npm run moauth:generate-signing-keys -- --out-dir /tmp/moauth-signing --kid ci-connect-1
+
+      - name: Run production static OIDC verification
+        env:
+          NODE_ENV: production
+          MOAUTH_CONNECT_ISSUER: https://connect.example.com
+          MOAUTH_CONNECT_PUBLIC_URL: https://connect.example.com
+          MOAUTH_CONNECT_ID_TOKEN_SIGNING_MODE: production-jwks
+          MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY_FILE: /tmp/moauth-signing/private.pem
+          MOAUTH_CONNECT_ID_TOKEN_SIGNING_ALG: RS256
+          MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID: ci-connect-1
+        run: npm run moauth:verify-oidc -- --static-only
+
+  # Optional probe only; staging/release must use moauth-oidc-release.yml (--strict-live).
+  live-oidc-verify:
+    runs-on: ubuntu-latest
+    needs: unit-and-static-oidc-gates
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Probe live Connect OIDC endpoints
+        env:
+          MOAUTH_CONNECT_ISSUER: ${{ vars.MOAUTH_CONNECT_ISSUER || 'http://127.0.0.1:3000' }}
+          MOAUTH_CONNECT_PUBLIC_URL: ${{ vars.MOAUTH_CONNECT_PUBLIC_URL || 'http://127.0.0.1:3000' }}
+          NODE_ENV: ${{ vars.MOAUTH_CI_NODE_ENV || 'development' }}
+        run: |
+          if curl -fsS --max-time 3 "${MOAUTH_CONNECT_ISSUER}/.well-known/openid-configuration" >/dev/null; then
+            echo "Connect is reachable; running live OIDC verification."
+            npm run moauth:verify-oidc
+          else
+            echo "Connect is not reachable in CI; skipping live OIDC verification."
+            npm run moauth:verify-oidc -- --static-only
+          fi

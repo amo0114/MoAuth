@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isZitadelConfigured } from "./src/config/zitadel.js";
-import { proxyToZitadel, shouldProxyZitadel } from "./src/oidc/proxy.js";
+import { proxyToZitadel, shouldProxyZitadel } from "./src/oidc/proxy-core.js";
+
+export const runtime = "nodejs";
 
 export async function middleware(request) {
   const url = new URL(request.url);
@@ -25,5 +27,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/oauth/:path*", "/oidc/:path*", "/.well-known/:path*"],
+  matcher: ["/oidc/:path*", "/.well-known/:path*"],
 };

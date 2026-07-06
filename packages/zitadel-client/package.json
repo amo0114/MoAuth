@@ -1,0 +1,18 @@
+{
+  "name": "@moauth/zitadel-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-only Zitadel Session API v2 client for Connect and Account BFFs.",
+  "exports": {
+    ".": "./src/index.js",
+    "./config": "./src/config.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@moauth/connect-contract": "file:../connect-contract",
+    "undici": "^7.28.0"
+  }
+}

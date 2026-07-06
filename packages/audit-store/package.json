@@ -1,0 +1,13 @@
+{
+  "name": "@moauth/audit-store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Account security audit event store.",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

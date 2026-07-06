@@ -3,6 +3,8 @@ import {
   ZITADEL_ERROR_CODES,
   isZitadelConfigured,
 } from "../../../../src/config/zitadel.js";
+import { loadAuthRequestInfo } from "../../../../src/oidc/auth-request-info.js";
+import { normalizeClientCallbackUrl } from "../../../../src/oidc/client-callback-url.js";
 import {
   assertAuthRequestId,
   finalizeAuthRequest,
@@ -67,14 +69,17 @@ export async function POST(request) {
     });
   }
 
+  const authRequestInfo = await loadAuthRequestInfo(authRequestId);
+
   try {
-    const finalized = await finalizeAuthRequest(authRequestId, {
+    const finalized = await finalizeAuthRequest({
+      authRequestId,
       sessionId: connectSession.sessionId,
       sessionToken: connectSession.sessionToken,
     });
     return NextResponse.json({
       status: "AUTH_REQUEST_FINALIZED",
-      callbackUrl: finalized.callbackUrl,
+      callbackUrl: normalizeClientCallbackUrl(finalized.callbackUrl, authRequestInfo),
       loginName: connectSession.loginName || null,
     });
   } catch (error) {

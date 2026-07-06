@@ -1,0 +1,281 @@
+name: moauth-staging
+
+services:
+  caddy:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+      CONNECT_HOST: ${CONNECT_HOST}
+      ACCOUNT_HOST: ${ACCOUNT_HOST}
+      SUBBOOST_HOST: ${SUBBOOST_HOST}
+      ZITADEL_HOST: ${ZITADEL_HOST}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      connect:
+        condition: service_started
+      account:
+        condition: service_started
+      subboost:
+        condition: service_started
+      zitadel:
+        condition: service_healthy
+    networks:
+      moauth:
+        aliases:
+          - ${CONNECT_HOST}
+          - ${ACCOUNT_HOST}
+          - ${SUBBOOST_HOST}
+          - ${ZITADEL_HOST}
+
+  zitadel-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${ZITADEL_POSTGRES_PASSWORD}
+      POSTGRES_DB: zitadel
+    volumes:
+      - zitadel_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d zitadel"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - moauth
+
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:v4.15.3
+    restart: unless-stopped
+    command: >
+      start-from-init
+      --masterkey "${ZITADEL_MASTERKEY}"
+      --tlsMode disabled
+    environment:
+      ZITADEL_MASTERKEY: ${ZITADEL_MASTERKEY}
+      ZITADEL_EXTERNALDOMAIN: ${ZITADEL_HOST}
+      ZITADEL_EXTERNALPORT: 443
+      ZITADEL_EXTERNALSECURE: "true"
+      ZITADEL_TLS_ENABLED: "false"
+
+      ZITADEL_DATABASE_POSTGRES_HOST: zitadel-db
+      ZITADEL_DATABASE_POSTGRES_PORT: 5432
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${ZITADEL_POSTGRES_PASSWORD}
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: postgres
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${ZITADEL_POSTGRES_PASSWORD}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+
+      ZITADEL_FIRSTINSTANCE_ORG_NAME: ${ZITADEL_ORG_NAME}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: ${ZITADEL_BOOTSTRAP_USERNAME}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: ${ZITADEL_BOOTSTRAP_PASSWORD}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: "false"
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL: ${ZITADEL_BOOTSTRAP_EMAIL}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAILVERIFIED: "true"
+
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: ${ZITADEL_SERVICE_USER}
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: MoAuth Connect Service
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "2299-12-31T23:59:59Z"
+      ZITADEL_FIRSTINSTANCE_PATPATH: /bootstrap/connect-service.pat
+      ZITADEL_FIRSTINSTANCE_MACHINEKEYPATH: /bootstrap/connect-service-machinekey.json
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINEKEY_TYPE: "1"
+
+      ZITADEL_LOGSTORE_ACCESS_STDOUT_ENABLED: "true"
+      ZITADEL_LOG_LEVEL: info
+    volumes:
+      - zitadel_bootstrap:/bootstrap
+    depends_on:
+      zitadel-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/zitadel", "ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    networks:
+      - moauth
+
+  connect:
+    build:
+      context: ../..
+      dockerfile: apps/connect/Dockerfile
+      args:
+        MOAUTH_CONNECT_ISSUER: https://${CONNECT_HOST}
+        MOAUTH_CONNECT_PUBLIC_URL: https://${CONNECT_HOST}
+    image: moauth-connect:staging
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MOAUTH_CONNECT_ISSUER: https://${CONNECT_HOST}
+      MOAUTH_CONNECT_PUBLIC_URL: https://${CONNECT_HOST}
+      MOAUTH_ACCOUNT_PUBLIC_URL: https://${ACCOUNT_HOST}
+      MOAUTH_ACCOUNT_INTERNAL_URL: http://account:3002
+      MOAUTH_ACCOUNT_HEALTH_PROBE_PATH: /api/health/ready
+      MOAUTH_HANDOFF_INTERNAL_TOKEN: ${MOAUTH_HANDOFF_INTERNAL_TOKEN}
+      MOAUTH_HANDOFF_STORE_SECRET: ${MOAUTH_HANDOFF_STORE_SECRET}
+
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_MODE: production-jwks
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY_FILE: /run/secrets/connect-signing-private.pem
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID: ${MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID}
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_ALG: ${MOAUTH_CONNECT_ID_TOKEN_SIGNING_ALG}
+      MOAUTH_CONNECT_SESSION_SECRET: ${MOAUTH_CONNECT_SESSION_SECRET}
+      MOAUTH_CONNECT_TRANSACTION_SECRET: ${MOAUTH_CONNECT_TRANSACTION_SECRET}
+
+      MOAUTH_CLIENT_REGISTRY_STORE: ${MOAUTH_CLIENT_REGISTRY_STORE}
+      MOAUTH_CLIENT_REGISTRY_STORE_PATH: /app/data/oidc-clients.json
+
+      ZITADEL_ISSUER: https://${ZITADEL_HOST}
+      ZITADEL_SERVICE_USER_TOKEN: ${ZITADEL_SERVICE_USER_TOKEN}
+      ZITADEL_ORG_ID: ${ZITADEL_ORG_ID}
+      ZITADEL_PROJECT_ID: ${ZITADEL_PROJECT_ID}
+    volumes:
+      - ${CONNECT_SIGNING_PRIVATE_KEY_FILE_HOST}:/run/secrets/connect-signing-private.pem:ro
+      - moauth_data:/app/data
+    depends_on:
+      account:
+        condition: service_started
+      zitadel:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/.well-known/openid-configuration',{redirect:'manual'}).then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))\""]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - moauth
+
+  account:
+    build:
+      context: ../..
+      dockerfile: apps/account/Dockerfile
+    image: moauth-account:staging
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MOAUTH_ACCOUNT_PUBLIC_URL: https://${ACCOUNT_HOST}
+      MOAUTH_CONNECT_PUBLIC_URL: https://${CONNECT_HOST}
+      MOAUTH_ACCOUNT_SESSION_SECRET: ${MOAUTH_ACCOUNT_SESSION_SECRET}
+      MOAUTH_HANDOFF_INTERNAL_TOKEN: ${MOAUTH_HANDOFF_INTERNAL_TOKEN}
+      MOAUTH_ACCOUNT_ADMIN_SUBJECTS: ${MOAUTH_ACCOUNT_ADMIN_SUBJECTS}
+      MOAUTH_CONSOLE_ZITADEL_SYNC: ${MOAUTH_CONSOLE_ZITADEL_SYNC}
+
+      MOAUTH_CLIENT_REGISTRY_STORE: ${MOAUTH_CLIENT_REGISTRY_STORE}
+      MOAUTH_CLIENT_REGISTRY_STORE_PATH: /app/data/oidc-clients.json
+      MOAUTH_AUTHORIZED_APPS_STORE: ${MOAUTH_AUTHORIZED_APPS_STORE}
+      MOAUTH_AUTHORIZED_APPS_STORE_PATH: /app/data/authorized-apps.json
+      MOAUTH_APPLICATION_REQUESTS_STORE_PATH: /app/data/application-requests.json
+
+      ZITADEL_ISSUER: https://${ZITADEL_HOST}
+      ZITADEL_SERVICE_USER_TOKEN: ${ZITADEL_SERVICE_USER_TOKEN}
+      ZITADEL_ORG_ID: ${ZITADEL_ORG_ID}
+      ZITADEL_PROJECT_ID: ${ZITADEL_PROJECT_ID}
+    volumes:
+      - moauth_data:/app/data
+    depends_on:
+      zitadel:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3002/api/health/ready').then(r=>r.json()).then(j=>process.exit(j && j.ok===true?0:1)).catch(()=>process.exit(1))\""]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - moauth
+
+  subboost-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SUBBOOST_POSTGRES_DB}
+      POSTGRES_USER: ${SUBBOOST_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${SUBBOOST_POSTGRES_PASSWORD}
+    volumes:
+      - subboost_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - moauth
+
+  subboost:
+    build:
+      context: ../..
+      dockerfile: deploy/staging/Dockerfile.subboost
+      args:
+        APP_RELEASE_VERSION: ${APP_RELEASE_VERSION}
+        APP_BUILD_SHA: ${APP_BUILD_SHA}
+        APP_VERSION: ${APP_VERSION}
+        APP_VERSION_TOKEN: ${APP_VERSION_TOKEN}
+    image: moauth-subboost:staging
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${SUBBOOST_DATABASE_URL}
+      ENCRYPTION_KEY: ${SUBBOOST_ENCRYPTION_KEY}
+      JWT_SECRET: ${SUBBOOST_JWT_SECRET}
+      CRON_SECRET: ${SUBBOOST_CRON_SECRET}
+      APP_URL: https://${SUBBOOST_HOST}
+      MOAUTH_CONNECT_ISSUER: https://${CONNECT_HOST}
+      MOAUTH_CONNECT_CLIENT_ID: ${MOAUTH_CONNECT_CLIENT_ID}
+      MOAUTH_CONNECT_CLIENT_SECRET: ${MOAUTH_CONNECT_CLIENT_SECRET}
+      SUBBOOST_MOAUTH_TX_SECRET: ${SUBBOOST_MOAUTH_TX_SECRET}
+      APP_RELEASE_VERSION: ${APP_RELEASE_VERSION}
+      APP_BUILD_SHA: ${APP_BUILD_SHA}
+      APP_VERSION: ${APP_VERSION}
+      APP_VERSION_TOKEN: ${APP_VERSION_TOKEN}
+    depends_on:
+      subboost-db:
+        condition: service_healthy
+      connect:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health/live').then(r=>r.json()).then(j=>process.exit(j && j.ok===true?0:1)).catch(()=>process.exit(1))\""]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - moauth
+
+  subboost-cron:
+    image: curlimages/curl:8.11.1
+    restart: unless-stopped
+    environment:
+      CRON_SECRET: ${SUBBOOST_CRON_SECRET}
+    command:
+      [
+        "sh",
+        "-c",
+        "i=0; while true; do if [ $$i -le 0 ]; then echo \"[subboost-cron] $(date -Iseconds) POST /api/cron/update-rule-index\"; curl -fsS -X POST -H \"Authorization: Bearer $${CRON_SECRET}\" http://subboost:3000/api/cron/update-rule-index || true; i=10; fi; echo \"[subboost-cron] $(date -Iseconds) POST /api/cron/update-subscriptions\"; curl -fsS -X POST -H \"Authorization: Bearer $${CRON_SECRET}\" http://subboost:3000/api/cron/update-subscriptions || true; i=$$((i - 1)); sleep 360; done"
+      ]
+    depends_on:
+      subboost:
+        condition: service_started
+    networks:
+      - moauth
+
+volumes:
+  caddy_data:
+  caddy_config:
+  zitadel_postgres_data:
+  zitadel_bootstrap:
+  moauth_data:
+  subboost_postgres_data:
+
+networks:
+  moauth:
+    name: moauth_staging_net

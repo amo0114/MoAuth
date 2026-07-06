@@ -8,9 +8,14 @@ import {
   readConnectSessionFromCookie,
   signConnectSession,
 } from "../src/oidc/connect-session.js";
+import { resetConnectSessionStoreForTests } from "../src/oidc/connect-session-store.js";
 
 const SECRET = "test-secret";
 const NOW = new Date("2026-06-29T12:00:00.000Z");
+
+test.beforeEach(() => {
+  resetConnectSessionStoreForTests();
+});
 
 function makeSession(overrides = {}) {
   return createConnectSession({
@@ -36,6 +41,7 @@ test("connect session preserves loginName for account continuation", () => {
 test("signed session round-trips and exposes loginName for continue endpoint", () => {
   const session = makeSession();
   const cookieValue = signConnectSession(session, SECRET);
+  assert.doesNotMatch(cookieValue, /tok/);
   const verified = readConnectSessionFromCookie(cookieValue, NOW, SECRET);
   assert.equal(verified.loginName, "alice");
   assert.equal(verified.sessionId, "sess-1");

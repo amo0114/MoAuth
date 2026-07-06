@@ -1,0 +1,18 @@
+export const AUDIT_EVENT_TYPES = Object.freeze({
+  LOGIN_SUCCESS: "login_success",
+  HANDOFF_ISSUED: "handoff_issued",
+  HANDOFF_CONSUMED: "handoff_consumed",
+  CONSENT_GRANTED: "consent_granted",
+  CONSENT_DENIED: "consent_denied",
+  PROFILE_UPDATED: "profile_updated",
+  PASSWORD_CHANGED: "password_changed",
+  PASSWORD_RESET: "password_reset",
+  EMAIL_VERIFIED: "email_verified",
+  APPLICATION_REVOKED: "application_revoked",
+  CONSOLE_CLIENT_CREATED: "console_client_created",
+  CONSOLE_CLIENT_UPDATED: "console_client_updated",
+  CONSOLE_CLIENT_DISABLED: "console_client_disabled",
+  CONSOLE_CLIENT_ACTIVATED: "console_client_activated",
+  CONSOLE_APPLICATION_REQUEST_APPROVED: "console_application_request_approved",
+  CONSOLE_APPLICATION_REQUEST_REJECTED: "console_application_request_rejected",
+});

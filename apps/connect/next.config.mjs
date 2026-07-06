@@ -1,6 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@moauth/connect-contract"],
+  env: {
+    MOAUTH_CONNECT_ISSUER: process.env.MOAUTH_CONNECT_ISSUER,
+    MOAUTH_CONNECT_PUBLIC_URL: process.env.MOAUTH_CONNECT_PUBLIC_URL,
+  },
+  transpilePackages: [
+    "@moauth/connect-contract",
+    "@moauth/client-registry-store",
+    "@moauth/authorized-apps-store",
+    "@moauth/handoff-store",
+    "@moauth/zitadel-client",
+  ],
   poweredByHeader: false,
   async headers() {
     const headers = [

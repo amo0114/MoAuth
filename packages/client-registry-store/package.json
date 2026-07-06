@@ -1,0 +1,17 @@
+{
+  "name": "@moauth/client-registry-store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MoAuth OIDC client registry store (Console P4).",
+  "exports": {
+    ".": "./src/index.js",
+    "./seed.js": "./src/seed.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@moauth/connect-contract": "file:../connect-contract"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@moauth/e2e-acceptance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cross-service handoff acceptance tests for SubBoost OIDC login path.",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@moauth/handoff-store": "file:../handoff-store",
+    "@moauth/zitadel-client": "file:../zitadel-client"
+  }
+}

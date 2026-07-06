@@ -1,0 +1,29 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$CONNECT_HOST} {
+	encode zstd gzip
+	reverse_proxy connect:3000
+}
+
+{$ACCOUNT_HOST} {
+	encode zstd gzip
+	reverse_proxy account:3002
+}
+
+{$SUBBOOST_HOST} {
+	encode zstd gzip
+	reverse_proxy subboost:3000
+}
+
+{$ZITADEL_HOST} {
+	encode zstd gzip
+
+	@private remote_ip private_ranges
+	handle @private {
+		reverse_proxy zitadel:8080
+	}
+
+	respond "not found" 404
+}
