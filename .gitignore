@@ -45,8 +45,10 @@ pnpm-debug.log*
 .trellis/**/*.new
 .trellis/**/.plan-log
 
-# --- AI assistant local state (not repo config) ---
-# Keep .agents/ and .codex/ tracked — they are project workflow config.
+# --- AI assistant local state ---
+.agents/
+.codex/
+AGENTS.md
 .ace-tool/
 .agent/
 .claude/
