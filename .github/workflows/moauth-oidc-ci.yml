@@ -20,8 +20,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run workspace unit tests
-        run: npm test
+      - name: Run PR automation gate
+        run: npm run test:ci
 
       - name: Run OIDC static gate unit tests
         run: npm run test:oidc-gates
@@ -38,7 +38,18 @@ jobs:
           MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY_FILE: /tmp/moauth-signing/private.pem
           MOAUTH_CONNECT_ID_TOKEN_SIGNING_ALG: RS256
           MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID: ci-connect-1
+          MOAUTH_CONNECT_SESSION_SECRET: ci-connect-session-secret
+          MOAUTH_CONNECT_TRANSACTION_SECRET: ci-connect-transaction-secret
+          MOAUTH_ACCOUNT_SESSION_SECRET: ci-account-session-secret
+          MOAUTH_HANDOFF_INTERNAL_TOKEN: ci-handoff-token
+          SUBBOOST_MOAUTH_TX_SECRET: ci-subboost-tx-secret
         run: npm run moauth:verify-oidc -- --static-only
+
+      - name: Validate staging Docker Compose config
+        run: docker compose --env-file deploy/staging/.env.example -f deploy/staging/docker-compose.yml config
+
+      - name: Build first-party staging images
+        run: docker compose --env-file deploy/staging/.env.example -f deploy/staging/docker-compose.yml build connect account
 
   # Optional probe only; staging/release must use moauth-oidc-release.yml (--strict-live).
   live-oidc-verify:

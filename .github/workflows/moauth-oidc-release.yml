@@ -37,11 +37,14 @@ jobs:
         run: npm run test:ci
 
       - name: Materialize Connect signing key for static gates
-        if: ${{ secrets.MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY != '' }}
+        env:
+          CONNECT_PRIVATE_KEY: ${{ secrets.MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY }}
         run: |
-          printf '%s\n' "${{ secrets.MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY }}" > /tmp/connect-private.pem
-          chmod 600 /tmp/connect-private.pem
-          echo "MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY_FILE=/tmp/connect-private.pem" >> "$GITHUB_ENV"
+          if [ -n "${CONNECT_PRIVATE_KEY}" ]; then
+            printf '%s\n' "${CONNECT_PRIVATE_KEY}" > /tmp/connect-private.pem
+            chmod 600 /tmp/connect-private.pem
+            echo "MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY_FILE=/tmp/connect-private.pem" >> "$GITHUB_ENV"
+          fi
 
       - name: Run staging/release live OIDC verification
         env:
