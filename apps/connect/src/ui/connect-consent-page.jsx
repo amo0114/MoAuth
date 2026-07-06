@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { identityBrand } from "../config/brand.js";
 import { getDictionary } from "./i18n/index.js";
-import { buildAccountLoginUrl } from "../oidc/account-redirect.js";
 import { buildAccountUrl } from "./connect-urls.js";
 
 export function ConnectConsentPage({
@@ -20,6 +19,7 @@ export function ConnectConsentPage({
   authRequestInfo,
   ssoUser,
   locale = "zh-CN",
+  accountBaseUrl = identityBrand.accountBaseUrl,
 }) {
   const t = getDictionary(locale);
   const appName = authRequestInfo?.clientDisplayName || t.login.currentAppFallback;
@@ -45,7 +45,7 @@ export function ConnectConsentPage({
           errorCode === "CONNECT_SESSION_REQUIRED" ||
           errorCode === "CONNECT_SESSION_INVALID"
         ) {
-          window.location.assign(buildAccountLoginUrl(authRequestId));
+          window.location.assign(buildAccountUrl("/login", authRequestId, { accountBaseUrl }));
           return;
         }
         if (errorCode === "ACCOUNT_CENTER_UNAVAILABLE") {
@@ -79,7 +79,7 @@ export function ConnectConsentPage({
 
   async function handleSwitchAccount() {
     await fetch("/api/login", { method: "DELETE" }).catch(() => {});
-    window.location.assign(buildAccountUrl("/login", authRequestId, { requireLogin: true }));
+    window.location.assign(buildAccountUrl("/login", authRequestId, { accountBaseUrl, requireLogin: true }));
   }
 
   const displayName = ssoUser?.loginName || ssoUser?.email || t.consent.unknownUser;

@@ -1,0 +1,23 @@
+services:
+  connect:
+    build:
+      context: ../..
+      dockerfile: apps/connect/Dockerfile
+    image: ${MOAUTH_IMAGE_REGISTRY:-ghcr.io/amo0114}/moauth-connect:${MOAUTH_IMAGE_TAG:-local}
+
+  account:
+    build:
+      context: ../..
+      dockerfile: apps/account/Dockerfile
+    image: ${MOAUTH_IMAGE_REGISTRY:-ghcr.io/amo0114}/moauth-account:${MOAUTH_IMAGE_TAG:-local}
+
+  subboost:
+    build:
+      context: ../..
+      dockerfile: deploy/staging/Dockerfile.subboost
+      args:
+        APP_RELEASE_VERSION: ${APP_RELEASE_VERSION}
+        APP_BUILD_SHA: ${APP_BUILD_SHA}
+        APP_VERSION: ${APP_VERSION}
+        APP_VERSION_TOKEN: ${APP_VERSION_TOKEN}
+    image: ${MOAUTH_IMAGE_REGISTRY:-ghcr.io/amo0114}/moauth-subboost:${MOAUTH_IMAGE_TAG:-local}

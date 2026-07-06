@@ -24,7 +24,7 @@ import {
   LOGIN_TRANSACTION_COOKIE,
   readLoginTransactionFromCookie,
 } from "../../src/oidc/transaction.js";
-import { getPublicAppUrl, isPasswordLoginFallbackEnabled } from "../../src/config/env.js";
+import { getAccountPublicUrl, getPublicAppUrl, isPasswordLoginFallbackEnabled } from "../../src/config/env.js";
 import { detectLocaleFromHeaders, getDictionary, resolveLocale } from "../../src/ui/i18n/index.js";
 
 function isNextRedirect(error) {
@@ -47,6 +47,7 @@ export default async function LoginPage({ searchParams }) {
   const locale = resolveLocale(resolvedSearchParams?.locale) || detectLocaleFromHeaders(headerStore);
   const dictionary = getDictionary(locale);
   const passwordFallbackEnabled = isPasswordLoginFallbackEnabled();
+  const accountBaseUrl = getAccountPublicUrl();
 
   if (authRequestId) {
     const authRequestInfo = await loadAuthRequestInfo(authRequestId);
@@ -154,6 +155,7 @@ export default async function LoginPage({ searchParams }) {
             sub: connectSession.sub,
           }}
           locale={locale}
+          accountBaseUrl={accountBaseUrl}
         />
       );
     }
@@ -169,6 +171,7 @@ export default async function LoginPage({ searchParams }) {
           existingSession={existingSession}
           locale={locale}
           passwordFallbackEnabled
+          accountBaseUrl={accountBaseUrl}
         />
       );
     }
@@ -177,13 +180,13 @@ export default async function LoginPage({ searchParams }) {
   }
 
   if (!tx) {
-    return <ConnectLoginPage locale={locale} passwordFallbackEnabled={passwordFallbackEnabled} />;
+    return <ConnectLoginPage locale={locale} passwordFallbackEnabled={passwordFallbackEnabled} accountBaseUrl={accountBaseUrl} />;
   }
 
   try {
     const transaction = readLoginTransactionFromCookie(cookieStore.get(LOGIN_TRANSACTION_COOKIE)?.value, tx);
-    return <ConnectLoginPage transaction={transaction} locale={locale} passwordFallbackEnabled={passwordFallbackEnabled} />;
+    return <ConnectLoginPage transaction={transaction} locale={locale} passwordFallbackEnabled={passwordFallbackEnabled} accountBaseUrl={accountBaseUrl} />;
   } catch {
-    return <ConnectLoginPage transactionError={dictionary.alerts.authRequestExpired} locale={locale} passwordFallbackEnabled={passwordFallbackEnabled} />;
+    return <ConnectLoginPage transactionError={dictionary.alerts.authRequestExpired} locale={locale} passwordFallbackEnabled={passwordFallbackEnabled} accountBaseUrl={accountBaseUrl} />;
   }
 }

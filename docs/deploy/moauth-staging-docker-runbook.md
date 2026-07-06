@@ -20,6 +20,7 @@ The target of this runbook is **staging release readiness evidence**, not final 
   - `id.staging.example.com`
 - Inbound `80/tcp` and `443/tcp` open for Caddy and ACME.
 - A checked-out MoAuth repository on the server.
+- Access to GHCR images published by GitHub Actions. If the packages are private, run `docker login ghcr.io` on the server with a token that can read packages.
 
 Zitadel is self-hosted in this compose stack. It is still a hidden auth core: business apps trust only the Connect issuer, and normal browser flows must not show the Zitadel domain.
 
@@ -35,6 +36,7 @@ mkdir -p deploy/staging/secrets/connect-signing
 Edit `deploy/staging/.env`:
 
 - replace all `*.staging.example.com` hosts with real staging domains
+- set `MOAUTH_IMAGE_TAG` to the exact image tag to deploy. Prefer `sha-<commit>` over `main` for reproducible staging evidence.
 - replace every `change-me-*` value
 - keep `.env` and `deploy/staging/secrets/` out of git
 
@@ -81,12 +83,26 @@ Then create or confirm the Zitadel project/application for SubBoost:
 
 Put that client id into `MOAUTH_CONNECT_CLIENT_ID`. If the app is confidential, also set `MOAUTH_CONNECT_CLIENT_SECRET`.
 
-## 4. Build And Start The Stack
+## 4. Pull And Start The Stack
+
+MoAuth runtime images are built by GitHub Actions and published to GHCR:
+
+- `ghcr.io/amo0114/moauth-connect`
+- `ghcr.io/amo0114/moauth-account`
+- `ghcr.io/amo0114/moauth-subboost`
+
+The image workflow publishes these tags:
+
+- `main` for the latest `main` branch build
+- `sha-<full-git-sha>` for immutable deploys
+- `v*` for release tags
+
+For staging evidence, pin `MOAUTH_IMAGE_TAG` in `deploy/staging/.env` to the `sha-...` tag from the successful image workflow run.
 
 From `deploy/staging`:
 
 ```bash
-docker compose build connect account subboost
+docker compose pull connect account subboost
 docker compose up -d
 docker compose ps
 ```
@@ -101,6 +117,15 @@ Expected services:
 - `subboost-db`
 - `subboost`
 - `subboost-cron`
+
+Local or emergency server-side builds are still available through the explicit build override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml build connect account subboost
+docker compose up -d
+```
+
+Do not use the build override for release evidence unless you explicitly record that the server rebuilt images locally instead of deploying the CI-published artifact.
 
 ## 5. Smoke Checks
 

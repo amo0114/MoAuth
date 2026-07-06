@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { consumeHandoffFromAccount } from "../src/handoff/account-client.js";
 import { buildAccountLoginUrl, buildConnectLoginUrl } from "../src/oidc/account-redirect.js";
+import { buildAccountUrl } from "../src/ui/connect-urls.js";
 import {
   createConnectSsoSession,
   readConnectSessionFromCookie,
@@ -49,6 +50,17 @@ test("buildAccountLoginUrl can force interactive login", withEnv({
   const url = buildAccountLoginUrl("V2_flow", { requireLogin: true });
   assert.match(url, /require_login=1/);
 }));
+
+test("buildAccountUrl uses injected public Account URL without build-time env", () => {
+  const url = buildAccountUrl("/register", "V2_flow", {
+    accountBaseUrl: "https://account.staging.example.com",
+    returnTo: "https://connect.staging.example.com/login",
+  });
+  assert.equal(
+    url,
+    "https://account.staging.example.com/register?return_to=https%3A%2F%2Fconnect.staging.example.com%2Flogin&auth_request=V2_flow"
+  );
+});
 
 test(
   "consumeHandoffFromAccount calls Account consume API with internal token",

@@ -31,6 +31,7 @@ export function ConnectLoginPage({
   existingSession = null,
   locale = "zh-CN",
   passwordFallbackEnabled = false,
+  accountBaseUrl = identityBrand.accountBaseUrl,
 } = {}) {
   const t = getDictionary(locale);
   const appName = transaction?.clientDisplayName || authRequestInfo?.clientDisplayName || t.login.currentAppFallback;
@@ -189,7 +190,7 @@ export function ConnectLoginPage({
 
   function handleAccountRoute(path, title, message) {
     if (typeof window !== "undefined") {
-      window.location.assign(buildAccountUrl(path, authRequestId));
+      window.location.assign(buildAccountUrl(path, authRequestId, { accountBaseUrl }));
       return;
     }
     setInfo(title, message);
@@ -434,7 +435,7 @@ export function ConnectLoginPage({
             <button
               className="primary-action"
               type="button"
-              onClick={() => window.location.assign(buildAccountUrl("/login", authRequestId))}
+              onClick={() => window.location.assign(buildAccountUrl("/login", authRequestId, { accountBaseUrl }))}
             >
               <span>{t.form.continueAtAccount(identityBrand.accountName)}</span>
               <ArrowRight aria-hidden="true" />

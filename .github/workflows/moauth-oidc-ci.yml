@@ -49,7 +49,7 @@ jobs:
         run: docker compose --env-file deploy/staging/.env.example -f deploy/staging/docker-compose.yml config
 
       - name: Build first-party staging images
-        run: docker compose --env-file deploy/staging/.env.example -f deploy/staging/docker-compose.yml build connect account
+        run: docker compose --env-file deploy/staging/.env.example -f deploy/staging/docker-compose.yml -f deploy/staging/docker-compose.build.yml build connect account
 
   # Optional probe only; staging/release must use moauth-oidc-release.yml (--strict-live).
   live-oidc-verify:
