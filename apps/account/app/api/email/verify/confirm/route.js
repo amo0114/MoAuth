@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { lifecycleJsonError } from "../../../../../src/api/lifecycle-response.js";
 import { recordAuditEvent } from "../../../../../src/audit/service.js";
 import { AUDIT_EVENT_TYPES, emailVerifiedSummary } from "../../../../../src/audit/summaries.js";
-import { confirmEmailVerification } from "../../../../../src/lifecycle/service.js";
+import { confirmEmailVerification } from "../../../../../src/lifecycle/service.ts";
 
 export async function POST(request) {
   let body;
