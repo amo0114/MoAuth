@@ -115,10 +115,12 @@ export function AdminUsers({ user: _user }: AdminUsersProps) {
 
   const [operating, setOperating] = React.useState<string | null>(null);
   const [operateError, setOperateError] = React.useState<string | null>(null);
+  const [operateNotice, setOperateNotice] = React.useState<string | null>(null);
 
   async function handleUserStatus(rowId: string, targetStatus: "active" | "disabled") {
     setOperating(rowId);
     setOperateError(null);
+    setOperateNotice(null);
     try {
       const res = await fetch(`/api/admin/users/${encodeURIComponent(rowId)}/status`, {
         method: "PATCH",
@@ -129,9 +131,30 @@ export function AdminUsers({ user: _user }: AdminUsersProps) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || "操作失败");
       }
+      setOperateNotice(targetStatus === "disabled" ? "账户已禁用。" : "账户已启用。");
       fetchUsers();
     } catch (err) {
       setOperateError(err instanceof Error ? err.message : "操作失败");
+    } finally {
+      setOperating(null);
+    }
+  }
+
+  async function handlePasswordReset(row: User) {
+    setOperating(row.id);
+    setOperateError(null);
+    setOperateNotice(null);
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(row.id)}/reset-password`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "密码重置请求失败");
+      }
+      setOperateNotice(`已向 ${row.email || row.loginName} 发送密码重置邮件。`);
+    } catch (err) {
+      setOperateError(err instanceof Error ? err.message : "密码重置请求失败");
     } finally {
       setOperating(null);
     }
@@ -249,6 +272,12 @@ export function AdminUsers({ user: _user }: AdminUsersProps) {
           </div>
         )}
 
+        {operateNotice && (
+          <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
+            {operateNotice}
+          </div>
+        )}
+
         {activeTab === "review" ? (
           <div className="rounded-lg border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
             <div className="px-4 py-3">
@@ -350,7 +379,15 @@ export function AdminUsers({ user: _user }: AdminUsersProps) {
                             <DropdownMenuLabel>账户操作</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem>查看详情</DropdownMenuItem>
-                            <DropdownMenuItem>重置密码</DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handlePasswordReset(row)}
+                              disabled={operating === row.id}
+                            >
+                              {operating === row.id ? (
+                                <Loader2 className="mr-2 size-3.5 animate-spin" />
+                              ) : null}
+                              重置密码
+                            </DropdownMenuItem>
                             <DropdownMenuItem>
                               {row.isAdmin ? "取消管理员" : "设为管理员"}
                             </DropdownMenuItem>
