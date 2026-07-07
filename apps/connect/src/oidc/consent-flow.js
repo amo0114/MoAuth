@@ -101,6 +101,16 @@ export async function resolveConsentPost({ body, cookieValue }) {
       cookieValue,
     }).catch(() => {});
 
+    void recordConsentAuditEvent({
+      authRequestInfo,
+      eventType: AUDIT_EVENT_TYPES.LOGIN_SUCCESS,
+      summary: authRequestInfo.clientDisplayName
+        ? `完成 ${authRequestInfo.clientDisplayName} 登录`
+        : "完成应用登录",
+      sub,
+      cookieValue,
+    }).catch(() => {});
+
     return okResult({
       status: "AUTH_REQUEST_FINALIZED",
       callbackUrl,

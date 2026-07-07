@@ -3,6 +3,7 @@ import http from "node:http";
 import test from "node:test";
 import { clearAuthRequestCache, setCachedAuthRequest } from "@moauth/zitadel-client";
 import { AUTHORIZED_APPS_ERROR_CODES } from "@moauth/authorized-apps-store";
+import { AUDIT_EVENT_TYPES } from "@moauth/audit-store";
 
 import { resetAccountHealthCache } from "../src/account/account-availability.js";
 import { resolveConsentPost } from "../src/oidc/consent-flow.js";
@@ -77,6 +78,14 @@ test("consent allow records grant before finalizing auth request", async () => {
     assert.deepEqual(callOrder.slice(0, 2), ["grant", "finalize"]);
     assert.equal(account.grantCalls(), 1);
     assert.equal(zitadel.finalizeCalls(), 1);
+
+    await waitFor(() =>
+      account.auditEvents().some((event) => event.eventType === AUDIT_EVENT_TYPES.LOGIN_SUCCESS)
+    );
+    const loginEvent = account
+      .auditEvents()
+      .find((event) => event.eventType === AUDIT_EVENT_TYPES.LOGIN_SUCCESS);
+    assert.equal(loginEvent.metadata.clientId, CLIENT_ID);
   } finally {
     await Promise.all([account.close(), zitadel.close()]);
   }
@@ -126,6 +135,7 @@ function makeConsentInput() {
 
 async function startAccountServer({ grantResponse, onGrant = () => {} }) {
   let grantCount = 0;
+  const auditEvents = [];
   const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/api/health/ready") {
       sendJson(response, 200, { ok: true, service: "account" });
@@ -139,7 +149,8 @@ async function startAccountServer({ grantResponse, onGrant = () => {} }) {
       return;
     }
     if (request.method === "POST" && request.url === "/api/internal/audit-events") {
-      await readRequestBody(request);
+      const body = await readRequestBody(request);
+      auditEvents.push(JSON.parse(body));
       sendJson(response, 200, { status: "AUDIT_EVENT_RECORDED" });
       return;
     }
@@ -149,6 +160,7 @@ async function startAccountServer({ grantResponse, onGrant = () => {} }) {
   return {
     url,
     grantCalls: () => grantCount,
+    auditEvents: () => [...auditEvents],
     close: () => close(server),
   };
 }
@@ -209,4 +221,13 @@ function readRequestBody(request) {
     request.on("end", () => resolve(body));
     request.on("error", reject);
   });
+}
+
+async function waitFor(predicate, { timeoutMs = 1000, intervalMs = 10 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  assert.fail("Timed out waiting for async audit event.");
 }

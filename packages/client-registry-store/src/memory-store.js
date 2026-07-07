@@ -58,6 +58,18 @@ export function createMemoryClientRegistryStore(options = {}) {
     return freezeRecord(record);
   }
 
+  function registerClient(payload) {
+    return create(payload);
+  }
+
+  function listClients(filters = {}) {
+    return list(filters);
+  }
+
+  function getClient(clientId) {
+    return getByClientId(clientId);
+  }
+
   function update(id, payload) {
     const key = String(id);
     const existing = records.get(key);
@@ -78,7 +90,10 @@ export function createMemoryClientRegistryStore(options = {}) {
   }
 
   function upsertSeed(payload) {
-    const existing = [...records.values()].find((entry) => entry.clientId === String(payload.clientId));
+    const payloadId = String(payload.id || "");
+    const existing = [...records.values()].find(
+      (entry) => entry.clientId === String(payload.clientId) || (payloadId && entry.id === payloadId)
+    );
     if (existing) return freezeRecord(existing);
     return create({ ...payload, status: payload.status || "active" });
   }
@@ -97,6 +112,9 @@ export function createMemoryClientRegistryStore(options = {}) {
     getByClientId,
     findActiveConnectClient,
     listActiveConnectClients,
+    registerClient,
+    listClients,
+    getClient,
     create,
     update,
     disable: (id) => setStatus(id, "disabled"),
