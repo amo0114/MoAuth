@@ -34,14 +34,14 @@ function withEnv(partial, fn) {
   return async () => {
     process.env = { ...origEnv, ...partial, NODE_ENV: "test", MOAUTH_ACCOUNT_PUBLIC_URL: "http://127.0.0.1:3002" };
     resetAccountSessionStoreForTests();
-    resetRegistrationConfigForTests();
+    await resetRegistrationConfigForTests();
     resetRegistrationReviewStoreForTests();
     try {
       return await fn();
     } finally {
       process.env = { ...origEnv };
       resetAccountSessionStoreForTests();
-      resetRegistrationConfigForTests();
+      await resetRegistrationConfigForTests();
       resetRegistrationReviewStoreForTests();
     }
   };
@@ -78,7 +78,7 @@ test(
 test(
   "registerAccountUser blocks closed registration before validation and Zitadel calls",
   withEnv(zitadelEnv, async () => {
-    setRegistrationConfig({ mode: "closed" }, { sub: "admin" });
+    await setRegistrationConfig({ mode: "closed" }, { sub: "admin" });
     const fetchMock = async () => {
       throw new Error("Zitadel should not be called for closed registration");
     };
@@ -153,7 +153,7 @@ test("registration mode notices explain policy before submission", () => {
 test(
   "registerAccountUser review mode deactivates and creates pending review",
   withEnv(zitadelEnv, async () => {
-    setRegistrationConfig({ mode: "review" }, { sub: "admin" });
+    await setRegistrationConfig({ mode: "review" }, { sub: "admin" });
     const calls = [];
     const fetchMock = async (url, init) => {
       const key = `${init?.method || "GET"} ${String(url)}`;
@@ -186,7 +186,7 @@ test(
 test(
   "registerAccountUser review mode compensates by deleting when deactivate fails",
   withEnv(zitadelEnv, async () => {
-    setRegistrationConfig({ mode: "review" }, { sub: "admin" });
+    await setRegistrationConfig({ mode: "review" }, { sub: "admin" });
     const calls = [];
     const fetchMock = async (url, init) => {
       const key = `${init?.method || "GET"} ${String(url)}`;
@@ -222,8 +222,8 @@ test(
 test(
   "registerAccountUser invite mode consumes reservation on success",
   withEnv(zitadelEnv, async () => {
-    setRegistrationConfig({ mode: "invite" }, { sub: "admin" });
-    const invite = createInviteCode({ maxUseCount: 1 });
+    await setRegistrationConfig({ mode: "invite" }, { sub: "admin" });
+    const invite = await createInviteCode({ maxUseCount: 1 });
     const fetchMock = async (url, init) => {
       const key = `${init?.method || "GET"} ${String(url)}`;
       if (key === "POST https://zitadel.example.com/v2/users/human") {
@@ -238,7 +238,7 @@ test(
     );
 
     assert.equal(result.status, "REGISTERED");
-    assert.equal(getInviteCode(invite.code).usedCount, 1);
+    assert.equal((await getInviteCode(invite.code)).usedCount, 1);
     await assert.rejects(
       registerAccountUser(
         { email: "invite2@example.com", password: "Password1!", displayName: "Invite User 2", inviteCode: invite.code },
@@ -252,8 +252,8 @@ test(
 test(
   "registerAccountUser invite mode releases reservation when Zitadel registration fails",
   withEnv(zitadelEnv, async () => {
-    setRegistrationConfig({ mode: "invite" }, { sub: "admin" });
-    const invite = createInviteCode({ maxUseCount: 1 });
+    await setRegistrationConfig({ mode: "invite" }, { sub: "admin" });
+    const invite = await createInviteCode({ maxUseCount: 1 });
     const fetchMock = async (url, init) => {
       const key = `${init?.method || "GET"} ${String(url)}`;
       if (key === "POST https://zitadel.example.com/v2/users/human") {
@@ -269,7 +269,7 @@ test(
       ),
       /Zitadel rejected the registration request/
     );
-    assert.equal(getInviteCode(invite.code).usedCount, 0);
+    assert.equal((await getInviteCode(invite.code)).usedCount, 0);
   })
 );
 

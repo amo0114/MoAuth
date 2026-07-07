@@ -13,7 +13,7 @@ export async function DELETE(request, context) {
 
   try {
     const { code } = await context.params;
-    const result = revokeInviteCode(code);
+    const result = await revokeInviteCode(code);
     return NextResponse.json({ code: result });
   } catch (error) {
     if (error.message.includes("not found")) {

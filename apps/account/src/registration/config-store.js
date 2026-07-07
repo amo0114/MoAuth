@@ -2,7 +2,10 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
+import { createPostgresRegistrationStore } from "@moauth/registration-store-pg";
+
 const VALID_MODES = new Set(["open", "closed", "review", "invite"]);
+const VALID_BACKENDS = new Set(["memory", "file", "pg"]);
 const INVITE_CODE_PREFIX = "MOAUTH-";
 
 function generateInviteCode() {
@@ -216,28 +219,81 @@ function createFileStore() {
   };
 }
 
-const globalStore =
-  globalThis.__moauthRegistrationConfigStore ||
-  (process.env.NODE_ENV === "test" ? createMemoryStore() : createFileStore());
-globalThis.__moauthRegistrationConfigStore = globalStore;
+function resolveRegistrationStoreBackend() {
+  const configured = String(process.env.MOAUTH_REGISTRATION_STORE_BACKEND || "").trim().toLowerCase();
+  if (configured) {
+    if (!VALID_BACKENDS.has(configured)) {
+      throw new Error(`Invalid MOAUTH_REGISTRATION_STORE_BACKEND: ${configured}`);
+    }
+    return configured;
+  }
+  return process.env.NODE_ENV === "test" ? "memory" : "file";
+}
+
+function createPgStore() {
+  const connectionString = String(process.env.MOAUTH_REGISTRATION_STORE_DATABASE_URL || "").trim();
+  if (!connectionString) {
+    throw new Error("MOAUTH_REGISTRATION_STORE_DATABASE_URL is required when MOAUTH_REGISTRATION_STORE_BACKEND=pg.");
+  }
+  return createPostgresRegistrationStore({
+    connectionString,
+    schemaName: String(process.env.MOAUTH_REGISTRATION_STORE_SCHEMA || "public").trim() || "public",
+    poolMax: process.env.MOAUTH_REGISTRATION_STORE_POOL_MAX || 5,
+  });
+}
+
+function createConfiguredStore(backend) {
+  if (backend === "memory") return createMemoryStore();
+  if (backend === "file") return createFileStore();
+  if (backend === "pg") return createPgStore();
+  throw new Error(`Unsupported registration store backend: ${backend}`);
+}
+
+function storeKey(backend) {
+  if (backend === "file") return `${backend}:${resolveStorePath()}`;
+  if (backend === "pg") {
+    return [
+      backend,
+      String(process.env.MOAUTH_REGISTRATION_STORE_DATABASE_URL || "").trim(),
+      String(process.env.MOAUTH_REGISTRATION_STORE_SCHEMA || "public").trim() || "public",
+      String(process.env.MOAUTH_REGISTRATION_STORE_POOL_MAX || "5").trim(),
+    ].join(":");
+  }
+  return backend;
+}
+
+function getGlobalStore() {
+  const backend = resolveRegistrationStoreBackend();
+  const key = storeKey(backend);
+  const current = globalThis.__moauthRegistrationConfigStore;
+  if (current?.key === key && current?.store) {
+    return current.store;
+  }
+  if (current?.store?.close) {
+    void current.store.close();
+  }
+  const store = createConfiguredStore(backend);
+  globalThis.__moauthRegistrationConfigStore = { key, store };
+  return store;
+}
 
 // --- Config exports ---
-export function getRegistrationConfig() { return globalStore.getConfig(); }
+export function getRegistrationConfig() { return getGlobalStore().getConfig(); }
 export function setRegistrationConfig({ mode }, actor) {
-  return globalStore.setConfig({ mode, updatedBy: actor?.sub || null });
+  return getGlobalStore().setConfig({ mode, updatedBy: actor?.sub || null });
 }
 
 // --- Invite code exports ---
-export function listInviteCodes() { return globalStore.listInviteCodes(); }
+export function listInviteCodes() { return getGlobalStore().listInviteCodes(); }
 export function createInviteCode({ maxUseCount, expiresAt }) {
-  return globalStore.createInviteCode({ maxUseCount, expiresAt });
+  return getGlobalStore().createInviteCode({ maxUseCount, expiresAt });
 }
-export function revokeInviteCode(code) { return globalStore.revokeInviteCode(code); }
-export function getInviteCode(code) { return globalStore.getInviteCode(code); }
-export function reserveInviteCode(code) { return globalStore.reserveInviteCode(code); }
-export function releaseInviteCode(reservationId) { return globalStore.releaseInviteCode(reservationId); }
+export function revokeInviteCode(code) { return getGlobalStore().revokeInviteCode(code); }
+export function getInviteCode(code) { return getGlobalStore().getInviteCode(code); }
+export function reserveInviteCode(code) { return getGlobalStore().reserveInviteCode(code); }
+export function releaseInviteCode(reservationId) { return getGlobalStore().releaseInviteCode(reservationId); }
 export function consumeInviteCode(reservationId, { userId, email }) {
-  return globalStore.consumeInviteCode(reservationId, { userId, email });
+  return getGlobalStore().consumeInviteCode(reservationId, { userId, email });
 }
 
-export function resetRegistrationConfigForTests() { globalStore._resetForTests(); }
+export function resetRegistrationConfigForTests() { return getGlobalStore()._resetForTests(); }

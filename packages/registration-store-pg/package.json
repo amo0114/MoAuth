@@ -1,0 +1,17 @@
+{
+  "name": "@moauth/registration-store-pg",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Postgres-backed Account registration config and invite-code store.",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.0",
+    "pg": "^8.16.3"
+  }
+}
