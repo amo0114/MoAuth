@@ -3,11 +3,11 @@ import { getRegistrationConfig, setRegistrationConfig } from "../registration/co
 
 const VALID_MODES = ["open", "closed", "review", "invite"];
 
-export function getRegistrationAdminConfig() {
-  return getRegistrationConfig();
+export async function getRegistrationAdminConfig() {
+  return await getRegistrationConfig();
 }
 
-export function updateRegistrationAdminConfig({ mode }, actor) {
+export async function updateRegistrationAdminConfig({ mode }, actor) {
   if (!VALID_MODES.includes(mode)) {
     const err = new Error(`Invalid mode: ${mode}. Must be one of: ${VALID_MODES.join(", ")}`);
     err.code = "REGISTRATION_CONFIG_INVALID";
@@ -15,7 +15,7 @@ export function updateRegistrationAdminConfig({ mode }, actor) {
     throw err;
   }
 
-  const updated = setRegistrationConfig({ mode }, actor);
+  const updated = await setRegistrationConfig({ mode }, actor);
 
   recordAuditEvent({
     eventType: "registration_config_updated",

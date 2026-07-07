@@ -28,6 +28,7 @@
     "test:handoff-store": "npm --workspace @moauth/handoff-store run test",
     "test:authorized-apps-store": "npm --workspace @moauth/authorized-apps-store run test",
     "test:client-registry-store": "npm --workspace @moauth/client-registry-store run test",
+    "test:registration-store-pg": "npm --workspace @moauth/registration-store-pg run test",
     "test:audit-store": "npm --workspace @moauth/audit-store run test",
     "test:account": "npm --workspace @moauth/account run test",
     "test:e2e": "npm --workspace @moauth/e2e-acceptance run test",
@@ -39,7 +40,7 @@
     "moauth:generate-signing-keys": "node scripts/generate-connect-signing-keys.mjs",
     "moauth:verify-oidc": "node scripts/verify-oidc.mjs",
     "moauth:verify-oidc:release": "node scripts/verify-oidc.mjs --strict-live",
-    "test:ci": "npm run test:acceptance && npm run test:client-registry-store && npm run test:connect-contract && npm run test:oidc-gates && MOAUTH_CONNECT_ISSUER=${MOAUTH_CONNECT_ISSUER:-http://127.0.0.1:3000} npm run moauth:verify-oidc -- --static-only"
+    "test:ci": "npm run test:acceptance && npm run test:registration-store-pg && npm run test:client-registry-store && npm run test:connect-contract && npm run test:oidc-gates && MOAUTH_CONNECT_ISSUER=${MOAUTH_CONNECT_ISSUER:-http://127.0.0.1:3000} npm run moauth:verify-oidc -- --static-only"
   },
   "overrides": {
     "next": {

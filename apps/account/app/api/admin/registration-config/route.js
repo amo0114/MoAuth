@@ -22,7 +22,7 @@ export async function GET() {
   if (forbidden) return forbidden;
 
   try {
-    const config = getRegistrationAdminConfig();
+    const config = await getRegistrationAdminConfig();
     return NextResponse.json({ config });
   } catch (error) {
     const mapped = mapRegistrationConfigError(error);
@@ -41,7 +41,7 @@ export async function PATCH(request) {
     if (!body || !body.mode) {
       return NextResponse.json({ error: "mode is required" }, { status: 400 });
     }
-    const config = updateRegistrationAdminConfig({ mode: body.mode }, user);
+    const config = await updateRegistrationAdminConfig({ mode: body.mode }, user);
     return NextResponse.json({ config });
   } catch (error) {
     const mapped = mapRegistrationConfigError(error);

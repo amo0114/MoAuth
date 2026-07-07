@@ -16,7 +16,7 @@ export async function GET() {
   if (forbidden) return forbidden;
 
   try {
-    const codes = listInviteCodes();
+    const codes = await listInviteCodes();
     return NextResponse.json({ codes });
   } catch (error) {
     return NextResponse.json({ error: error.message || "Failed to list invite codes." }, { status: 500 });
@@ -31,7 +31,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const code = createInviteCode({
+    const code = await createInviteCode({
       maxUseCount: body?.maxUseCount,
       expiresAt: body?.expiresAt || null,
     });

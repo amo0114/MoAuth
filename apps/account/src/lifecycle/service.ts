@@ -40,7 +40,7 @@ export async function registerAccountUser(
 ): Promise<RegisterAccountResult> {
   assertZitadelReady();
 
-  const config = getRegistrationConfig();
+  const config = await getRegistrationConfig();
   if (config.mode === "closed") {
     throw lifecycleError("REGISTRATION_CLOSED", "注册已关闭，请联系管理员。", 403);
   }
@@ -157,7 +157,7 @@ async function registerWithInvite(
 
   let reservation;
   try {
-    reservation = reserveInviteCode(input.inviteCode);
+    reservation = await reserveInviteCode(input.inviteCode);
   } catch (error) {
     throw lifecycleError("INVITE_CODE_INVALID", errorMessage(error), 403);
   }
@@ -179,11 +179,11 @@ async function registerWithInvite(
       }
     );
   } catch (error) {
-    releaseInviteCode(reservation.reservationId);
+    await releaseInviteCode(reservation.reservationId);
     throw error;
   }
 
-  consumeInviteCode(reservation.reservationId, {
+  await consumeInviteCode(reservation.reservationId, {
     userId: result.userId,
     email: result.email,
   });
