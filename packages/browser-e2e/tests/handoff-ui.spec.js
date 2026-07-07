@@ -25,7 +25,7 @@ test.describe("Handoff UI (live Connect + Account)", () => {
     await expect(page.locator("#login-password")).toBeVisible();
     await expect(page.locator("#login-name")).toBeVisible();
     await expect(page.getByRole("button", { name: /登录并继续|Continue at/i })).toBeVisible();
-    await expect(page.getByText(/Connect 继续授权|signing in through/i)).toBeVisible();
+    await expect(page.getByText(/登录后将继续前往 Connect|signing in through/i)).toBeVisible();
   });
 
   test("Connect bare login page does not expose password inputs when fallback is off", async ({ page }) => {

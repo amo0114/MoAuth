@@ -261,12 +261,12 @@ export function LoginPage({
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 sm:space-y-6">
               {/* 账号输入 */}
               <div className="space-y-2">
-                <label htmlFor="loginName" className="block text-[13px] font-semibold text-[#1D1D1F]/90 ml-1 drop-shadow-sm">
+                <label htmlFor="login-name" className="block text-[13px] font-semibold text-[#1D1D1F]/90 ml-1 drop-shadow-sm">
                   邮箱或用户名
                 </label>
                 <div className="relative">
                   <input
-                    id="loginName"
+                    id="login-name"
                     type="text"
                     {...form.register("loginName")}
                     placeholder="name@example.com"
@@ -286,13 +286,13 @@ export function LoginPage({
               {/* 密码输入 */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between ml-1 mr-1">
-                  <label htmlFor="password" className="block text-[13px] font-semibold text-[#1D1D1F]/90 drop-shadow-sm">
+                  <label htmlFor="login-password" className="block text-[13px] font-semibold text-[#1D1D1F]/90 drop-shadow-sm">
                     密码
                   </label>
                 </div>
                 <div className="relative">
                   <input
-                    id="password"
+                    id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     {...form.register("password")}
                     placeholder="••••••••"
