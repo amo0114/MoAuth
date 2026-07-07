@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-import { mapAdminUserError, setUserStatus } from "../../../../../../src/admin/users-api.js";
+import {
+  mapAdminUserError,
+  requestUserPasswordReset,
+} from "../../../../../../src/admin/users-api.js";
 import { requireAccountUser } from "../../../../../../src/auth/require-account-session.js";
 
-export async function PATCH(request, context) {
+export async function POST(request, context) {
   const cookieStore = await cookies();
   const user = requireAccountUser(cookieStore);
   if (!user.isAdmin) {
@@ -13,13 +16,7 @@ export async function PATCH(request, context) {
 
   try {
     const { id } = await context.params;
-    const body = await request.json();
-
-    if (!body || !body.status || !["active", "disabled"].includes(body.status)) {
-      return NextResponse.json({ error: "status must be 'active' or 'disabled'" }, { status: 400 });
-    }
-
-    const result = await setUserStatus(id, body.status, user);
+    const result = await requestUserPasswordReset(id, user);
     return NextResponse.json(result);
   } catch (error) {
     const mapped = mapAdminUserError(error);
