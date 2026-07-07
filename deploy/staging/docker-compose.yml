@@ -2,6 +2,7 @@ name: moauth-staging
 
 services:
   caddy:
+    profiles: [caddy]
     image: caddy:2.9-alpine
     restart: unless-stopped
     environment:
@@ -92,10 +93,12 @@ services:
       ZITADEL_LOGSTORE_ACCESS_STDOUT_ENABLED: "true"
       ZITADEL_LOG_LEVEL: info
     volumes:
-      - zitadel_bootstrap:/bootstrap
+      - ./bootstrap:/bootstrap:rw
     depends_on:
       zitadel-db:
         condition: service_healthy
+    ports:
+      - "127.0.0.1:18080:8080"
     healthcheck:
       test: ["CMD", "/app/zitadel", "ready"]
       interval: 10s
@@ -133,16 +136,26 @@ services:
       ZITADEL_SERVICE_USER_TOKEN: ${ZITADEL_SERVICE_USER_TOKEN}
       ZITADEL_ORG_ID: ${ZITADEL_ORG_ID}
       ZITADEL_PROJECT_ID: ${ZITADEL_PROJECT_ID}
+
+      NEXT_PUBLIC_IDENTITY_PRODUCT_NAME: ${NEXT_PUBLIC_IDENTITY_PRODUCT_NAME:-Aura}
+      NEXT_PUBLIC_IDENTITY_ACCOUNT_NAME: ${NEXT_PUBLIC_IDENTITY_ACCOUNT_NAME:-Aura 账号中心}
+      NEXT_PUBLIC_IDENTITY_GATEWAY_NAME: ${NEXT_PUBLIC_IDENTITY_GATEWAY_NAME:-Connect}
+      NEXT_PUBLIC_IDENTITY_PUBLIC_DOMAIN: ${NEXT_PUBLIC_IDENTITY_PUBLIC_DOMAIN}
+      NEXT_PUBLIC_IDENTITY_ACCOUNT_URL: ${NEXT_PUBLIC_IDENTITY_ACCOUNT_URL}
+      NEXT_PUBLIC_IDENTITY_SUPPORT_EMAIL: ${NEXT_PUBLIC_IDENTITY_SUPPORT_EMAIL:-}
+      NEXT_PUBLIC_IDENTITY_SLOGAN: ${NEXT_PUBLIC_IDENTITY_SLOGAN:-入本源，见真知。}
     volumes:
       - ${CONNECT_SIGNING_PRIVATE_KEY_FILE_HOST}:/run/secrets/connect-signing-private.pem:ro
       - moauth_data:/app/data
+    ports:
+      - "127.0.0.1:13000:3000"
     depends_on:
       account:
         condition: service_started
       zitadel:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/.well-known/openid-configuration',{redirect:'manual'}).then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/.well-known/openid-configuration',{redirect:'manual'}).then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))\""]
       interval: 20s
       timeout: 5s
       retries: 10
@@ -172,8 +185,17 @@ services:
       ZITADEL_SERVICE_USER_TOKEN: ${ZITADEL_SERVICE_USER_TOKEN}
       ZITADEL_ORG_ID: ${ZITADEL_ORG_ID}
       ZITADEL_PROJECT_ID: ${ZITADEL_PROJECT_ID}
+
+      NEXT_PUBLIC_IDENTITY_PRODUCT_NAME: ${NEXT_PUBLIC_IDENTITY_PRODUCT_NAME:-Aura}
+      NEXT_PUBLIC_IDENTITY_ACCOUNT_NAME: ${NEXT_PUBLIC_IDENTITY_ACCOUNT_NAME:-Aura 账号中心}
+      NEXT_PUBLIC_IDENTITY_GATEWAY_NAME: ${NEXT_PUBLIC_IDENTITY_GATEWAY_NAME:-Connect}
+      NEXT_PUBLIC_IDENTITY_CONNECT_URL: ${NEXT_PUBLIC_IDENTITY_CONNECT_URL}
+      NEXT_PUBLIC_IDENTITY_SUPPORT_EMAIL: ${NEXT_PUBLIC_IDENTITY_SUPPORT_EMAIL:-}
+      NEXT_PUBLIC_IDENTITY_SLOGAN: ${NEXT_PUBLIC_IDENTITY_SLOGAN:-入本源，见真知。}
     volumes:
       - moauth_data:/app/data
+    ports:
+      - "127.0.0.1:13002:3002"
     depends_on:
       zitadel:
         condition: service_healthy
@@ -221,6 +243,8 @@ services:
       APP_BUILD_SHA: ${APP_BUILD_SHA}
       APP_VERSION: ${APP_VERSION}
       APP_VERSION_TOKEN: ${APP_VERSION_TOKEN}
+    ports:
+      - "127.0.0.1:13001:3000"
     depends_on:
       subboost-db:
         condition: service_healthy
@@ -256,7 +280,6 @@ volumes:
   caddy_data:
   caddy_config:
   zitadel_postgres_data:
-  zitadel_bootstrap:
   moauth_data:
   subboost_postgres_data:
 

@@ -1,7 +1,7 @@
 export const enUS = {
   locale: "en-US",
   brand: {
-    productName: "MoYuan ID",
+    productName: "Aura",
   },
   hero: {
     titleLine1: "One identity,",

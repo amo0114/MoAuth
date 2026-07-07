@@ -1,7 +1,7 @@
 export const zhCN = {
   locale: "zh-CN",
   brand: {
-    productName: "MoYuan ID",
+    productName: "Aura",
   },
   hero: {
     titleLine1: "统一身份，",
