@@ -12,7 +12,7 @@ import {
   registerAccountUser,
   requestAccountPasswordReset,
   resetAccountPassword,
-} from "../src/lifecycle/service.js";
+} from "../src/lifecycle/service.ts";
 import {
   createInviteCode,
   getInviteCode,

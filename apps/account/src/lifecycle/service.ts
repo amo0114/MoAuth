@@ -18,9 +18,26 @@ import { buildAuthContextPath, shouldReturnVerificationCodes } from "../config/r
 import { getRegistrationConfig, reserveInviteCode, consumeInviteCode, releaseInviteCode } from "../registration/config-store.js";
 import { getRegistrationReviewStore } from "../registration-review/store.js";
 import { recordAuditEvent } from "../audit/service.js";
+import type {
+  AccountPasswordSession,
+  EmailVerificationInput,
+  LifecycleError,
+  LifecycleErrorCode,
+  LifecycleOptions,
+  PasswordChangeInput,
+  PasswordResetInput,
+  PasswordResetRequestInput,
+  RegisterAccountInput,
+  RegisterAccountPendingReviewResult,
+  RegisterAccountRegisteredResult,
+  RegisterAccountResult,
+} from "./types.js";
 
 
-export async function registerAccountUser(input, options = {}) {
+export async function registerAccountUser(
+  input: RegisterAccountInput,
+  options: LifecycleOptions = {}
+): Promise<RegisterAccountResult> {
   assertZitadelReady();
 
   const config = getRegistrationConfig();
@@ -53,7 +70,7 @@ export async function registerAccountUser(input, options = {}) {
     }
   );
 
-  const verifyPath = buildAuthContextPath("/verify-email", input.authRequestId);
+  const verifyPath = buildAuthContextPath("/verify-email", input.authRequestId || undefined);
   const redirectUrl = `${getAccountPublicUrl()}${verifyPath}${verifyPath.includes("?") ? "&" : "?"}user_id=${encodeURIComponent(result.userId)}`;
 
   return {
@@ -68,7 +85,10 @@ export async function registerAccountUser(input, options = {}) {
   };
 }
 
-async function registerForReview(input, options) {
+async function registerForReview(
+  input: RegisterAccountInput,
+  options: LifecycleOptions
+): Promise<RegisterAccountPendingReviewResult> {
   const result = await registerHumanUser(
     {
       email: input.email,
@@ -96,7 +116,7 @@ async function registerForReview(input, options) {
         eventType: "registration_review_compensation_failed",
         sub: null,
         summary: `审核模式补偿失败(1): deactivate+delete 均失败, userId=${userId}`,
-        metadata: { userId, deactivateError: error.message, deleteError: deleteError.message },
+        metadata: { userId, deactivateError: errorMessage(error), deleteError: errorMessage(deleteError) },
       });
     }
     throw lifecycleError("REGISTRATION_REVIEW_FAILED", "注册处理失败，请稍后重试。", 503);
@@ -112,7 +132,7 @@ async function registerForReview(input, options) {
         eventType: "registration_review_compensation_failed",
         sub: null,
         summary: `审核模式补偿失败(2): store 写入失败+delete 失败, userId=${userId}`,
-        metadata: { userId, storeError: error.message, deleteError: deleteError.message },
+        metadata: { userId, storeError: errorMessage(error), deleteError: errorMessage(deleteError) },
       });
     }
     throw lifecycleError("REGISTRATION_REVIEW_FAILED", "注册处理失败，请稍后重试。", 503);
@@ -127,7 +147,10 @@ async function registerForReview(input, options) {
   };
 }
 
-async function registerWithInvite(input, options) {
+async function registerWithInvite(
+  input: RegisterAccountInput,
+  options: LifecycleOptions
+): Promise<RegisterAccountRegisteredResult> {
   if (!input.inviteCode) {
     throw lifecycleError("INVITE_CODE_REQUIRED", "需要邀请码才能注册。", 403);
   }
@@ -136,7 +159,7 @@ async function registerWithInvite(input, options) {
   try {
     reservation = reserveInviteCode(input.inviteCode);
   } catch (error) {
-    throw lifecycleError("INVITE_CODE_INVALID", error.message, 403);
+    throw lifecycleError("INVITE_CODE_INVALID", errorMessage(error), 403);
   }
 
   let result;
@@ -165,7 +188,7 @@ async function registerWithInvite(input, options) {
     email: result.email,
   });
 
-  const verifyPath = buildAuthContextPath("/verify-email", input.authRequestId);
+  const verifyPath = buildAuthContextPath("/verify-email", input.authRequestId || undefined);
   const redirectUrl = `${getAccountPublicUrl()}${verifyPath}${verifyPath.includes("?") ? "&" : "?"}user_id=${encodeURIComponent(result.userId)}`;
 
   return {
@@ -180,7 +203,10 @@ async function registerWithInvite(input, options) {
   };
 }
 
-export async function confirmEmailVerification({ userId, verificationCode }, options = {}) {
+export async function confirmEmailVerification(
+  { userId, verificationCode }: EmailVerificationInput,
+  options: LifecycleOptions = {}
+) {
   assertZitadelReady();
   if (!userId || !verificationCode) {
     throw lifecycleError("EMAIL_VERIFY_BAD_REQUEST", "User id and verification code are required.", 400);
@@ -193,7 +219,10 @@ export async function confirmEmailVerification({ userId, verificationCode }, opt
   };
 }
 
-export async function sendEmailVerification({ userId }, options = {}) {
+export async function sendEmailVerification(
+  { userId }: { userId?: string | null },
+  options: LifecycleOptions = {}
+) {
   assertZitadelReady();
   if (!userId) {
     throw lifecycleError("EMAIL_VERIFY_BAD_REQUEST", "User id is required.", 400);
@@ -211,7 +240,10 @@ export async function sendEmailVerification({ userId }, options = {}) {
   };
 }
 
-export async function requestAccountPasswordReset({ email }, options = {}) {
+export async function requestAccountPasswordReset(
+  { email }: PasswordResetRequestInput,
+  options: LifecycleOptions = {}
+) {
   assertZitadelReady();
   const normalizedEmail = String(email || "").trim().toLowerCase();
   if (!normalizedEmail) {
@@ -240,7 +272,10 @@ export async function requestAccountPasswordReset({ email }, options = {}) {
   };
 }
 
-export async function resetAccountPassword({ email, verificationCode, newPassword }, options = {}) {
+export async function resetAccountPassword(
+  { email, verificationCode, newPassword }: PasswordResetInput,
+  options: LifecycleOptions = {}
+) {
   assertZitadelReady();
   const normalizedEmail = String(email || "").trim().toLowerCase();
   if (!normalizedEmail || !verificationCode || !newPassword) {
@@ -265,7 +300,11 @@ export async function resetAccountPassword({ email, verificationCode, newPasswor
   };
 }
 
-export async function changeAccountPassword(session, { currentPassword, newPassword }, options = {}) {
+export async function changeAccountPassword(
+  session: AccountPasswordSession,
+  { currentPassword, newPassword }: PasswordChangeInput,
+  options: LifecycleOptions = {}
+) {
   assertZitadelReady();
   if (!currentPassword || !newPassword) {
     throw lifecycleError("PASSWORD_CHANGE_BAD_REQUEST", "Current and new passwords are required.", 400);
@@ -283,7 +322,7 @@ export async function changeAccountPassword(session, { currentPassword, newPassw
   return { status: "PASSWORD_CHANGED" };
 }
 
-function validateRegistrationInput(input) {
+function validateRegistrationInput(input: RegisterAccountInput) {
   const email = String(input?.email || "").trim();
   const password = String(input?.password || "");
   if (!email || !password) {
@@ -300,15 +339,21 @@ function assertZitadelReady() {
   }
 }
 
-function devPayload(values) {
+function devPayload(values: Record<string, string | null | undefined>): Record<string, string> | undefined {
   if (!shouldReturnVerificationCodes()) return undefined;
-  const dev = Object.fromEntries(Object.entries(values).filter(([, value]) => value));
+  const dev = Object.fromEntries(
+    Object.entries(values).filter(([, value]) => value)
+  ) as Record<string, string>;
   return Object.keys(dev).length ? dev : undefined;
 }
 
-function lifecycleError(code, message, status) {
-  const error = new Error(message);
+function lifecycleError(code: LifecycleErrorCode, message: string, status: number): LifecycleError {
+  const error = new Error(message) as LifecycleError;
   error.code = code;
   error.status = status;
   return error;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

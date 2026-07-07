@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { lifecycleJsonError } from "../../../../src/api/lifecycle-response.js";
-import { requestAccountPasswordReset } from "../../../../src/lifecycle/service.js";
+import { requestAccountPasswordReset } from "../../../../src/lifecycle/service.ts";
 
 export async function POST(request) {
   let body;
