@@ -21,6 +21,7 @@ export const AUDIT_EVENT_TYPES = Object.freeze({
   REGISTRATION_REJECTED: "registration_rejected",
   REGISTRATION_APPROVE_FAILED: "registration_approve_failed",
   REGISTRATION_REJECT_FAILED: "registration_reject_failed",
+  REGISTRATION_REVIEW_RECONCILED: "registration_review_reconciled",
   ADMIN_USER_ACTIVE: "admin_user_active",
   ADMIN_USER_DISABLED: "admin_user_disabled",
   ADMIN_USER_PASSWORD_RESET_REQUESTED: "admin_user_password_reset_requested",

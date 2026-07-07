@@ -41,7 +41,12 @@ function createMemoryStore(options = {}) {
   function list(filters = {}) {
     let values = [...records.values()];
     if (filters.reviewStatus) {
-      values = values.filter((r) => r.reviewStatus === filters.reviewStatus);
+      const statuses = Array.isArray(filters.reviewStatus)
+        ? new Set(filters.reviewStatus)
+        : null;
+      values = values.filter((r) =>
+        statuses ? statuses.has(r.reviewStatus) : r.reviewStatus === filters.reviewStatus
+      );
     }
     if (filters.userId) {
       values = values.filter((r) => r.userId === filters.userId);
