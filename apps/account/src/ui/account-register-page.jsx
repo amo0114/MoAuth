@@ -6,17 +6,29 @@ import { Loader2 } from "lucide-react";
 import { BrandLogo } from "../components/brand/BrandLogo";
 import { AuthLayout } from "../features/auth/components/AuthLayout";
 import { cn } from "../lib/utils.js";
+import {
+  getAccountPublicErrorMessage,
+  getRegistrationModeNotice,
+} from "./account-public-error-message.js";
 
-export function AccountRegisterPage({ productName, authRequestId = "" }) {
+export function AccountRegisterPage({ productName, authRequestId = "", registrationMode = "open" }) {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
-  const [notice, setNotice] = useState(null);
+  const [inviteCode, setInviteCode] = useState("");
+  const [notice, setNotice] = useState(() => getRegistrationModeNotice(registrationMode));
   const [submitting, setSubmitting] = useState(false);
+  const registrationClosed = registrationMode === "closed";
+  const inviteRequired = registrationMode === "invite";
+  const modeNotice = getRegistrationModeNotice(registrationMode);
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setNotice(null);
+    if (registrationClosed) {
+      setNotice(getRegistrationModeNotice("closed"));
+      return;
+    }
+    setNotice(modeNotice);
     setSubmitting(true);
 
     try {
@@ -27,12 +39,15 @@ export function AccountRegisterPage({ productName, authRequestId = "" }) {
           email: email.trim(),
           displayName: displayName.trim(),
           password,
+          inviteCode: inviteCode.trim() || undefined,
           ...(authRequestId ? { authRequestId } : {}),
         }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error?.message || "注册失败，请重试。");
+        const errorCode = data?.error?.code;
+        setNotice({ tone: "danger", message: getAccountPublicErrorMessage(errorCode, "registration") });
+        return;
       }
 
       if (data.dev?.emailVerificationCode) {
@@ -46,8 +61,17 @@ export function AccountRegisterPage({ productName, authRequestId = "" }) {
         window.location.assign(data.redirectUrl);
         return;
       }
-    } catch (error) {
-      setNotice({ tone: "danger", message: String(error.message || error) });
+
+      if (data.status === "PENDING_REVIEW") {
+        setPassword("");
+        setNotice({
+          tone: "info",
+          message: "注册申请已提交，等待管理员审核。审核通过后即可登录。",
+        });
+        return;
+      }
+    } catch {
+      setNotice({ tone: "danger", message: getAccountPublicErrorMessage(null, "registration") });
     } finally {
       setSubmitting(false);
     }
@@ -69,7 +93,14 @@ export function AccountRegisterPage({ productName, authRequestId = "" }) {
             创建 {productName} 账号
           </h1>
           <p className="text-center text-[15px] font-medium leading-relaxed tracking-wide text-[#1D1D1F]/80 drop-shadow-sm">
-            注册后请验证邮箱。{authRequestId ? "验证完成后将返回登录并继续业务应用授权。" : ""}
+            {registrationClosed
+              ? "管理员已关闭新账号注册。"
+              : inviteRequired
+                ? "请输入有效邀请码完成注册。"
+                : registrationMode === "review"
+                  ? "提交后需等待管理员审核。"
+                  : "注册后请验证邮箱。"}
+            {!registrationClosed && authRequestId ? "验证完成后将返回登录并继续业务应用授权。" : ""}
           </p>
         </div>
 
@@ -116,6 +147,19 @@ export function AccountRegisterPage({ productName, authRequestId = "" }) {
           </div>
 
           <div className="space-y-2">
+            <label htmlFor="register-invite-code" className="ml-1 block text-[13px] font-semibold text-[#1D1D1F]/90 drop-shadow-sm">
+              邀请码 <span className="font-normal text-[#1D1D1F]/50">{inviteRequired ? "（必填）" : "（如有）"}</span>
+            </label>
+            <input
+              id="register-invite-code"
+              value={inviteCode}
+              onChange={(event) => setInviteCode(event.target.value)}
+              placeholder="MOAUTH-XXXXXXXX"
+              className="h-12 w-full rounded-[14px] border border-white/30 bg-white/20 px-4 text-[17px] font-medium text-[#1D1D1F] shadow-sm backdrop-blur-md transition-all duration-200 ease-out placeholder:text-[#1D1D1F]/60 hover:border-white/40 hover:bg-white/30 focus:border-[#007AFF]/60 focus:bg-white/40 focus:outline-none focus:ring-[3px] focus:ring-[#007AFF]/20"
+            />
+          </div>
+
+          <div className="space-y-2">
             <label htmlFor="register-password" className="ml-1 block text-[13px] font-semibold text-[#1D1D1F]/90 drop-shadow-sm">
               密码
             </label>
@@ -134,16 +178,18 @@ export function AccountRegisterPage({ productName, authRequestId = "" }) {
             <button
               className={cn(
                 "flex h-12 w-full items-center justify-center gap-2 rounded-[14px] text-[17px] font-semibold tracking-[-0.01em] text-white shadow-sm transition-all duration-200 ease-out",
-                submitting ? "cursor-wait bg-[#007AFF]/70" : "bg-[#007AFF]/80 backdrop-blur-md hover:bg-[#0071EB] active:scale-[0.98]"
+                submitting || registrationClosed ? "cursor-not-allowed bg-[#007AFF]/50" : "bg-[#007AFF]/80 backdrop-blur-md hover:bg-[#0071EB] active:scale-[0.98]"
               )}
               type="submit"
-              disabled={submitting}
+              disabled={submitting || registrationClosed}
             >
               {submitting ? (
                 <>
                   <Loader2 className="h-[20px] w-[20px] animate-spin text-white/80" />
                   注册中
                 </>
+              ) : registrationClosed ? (
+                "暂不开放注册"
               ) : (
                 "创建账号"
               )}

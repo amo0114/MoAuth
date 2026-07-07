@@ -16,7 +16,7 @@ export async function POST(request) {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { error: { code: "ACCOUNT_LOGIN_BAD_REQUEST", message: "Request body must be valid JSON." } },
+      { error: { code: "ACCOUNT_LOGIN_BAD_REQUEST", message: "请求格式无效，请刷新页面后重试。" } },
       { status: 400 }
     );
   }
@@ -88,10 +88,19 @@ function humanizeError(error) {
   if (error.code === ZITADEL_ERROR_CODES.ZITADEL_AUTH_REQUEST_NOT_FOUND) {
     return "登录请求已失效，请从应用重新进入。";
   }
+  if (
+    error.code === ZITADEL_ERROR_CODES.ZITADEL_NOT_CONFIGURED ||
+    error.code === ZITADEL_ERROR_CODES.ZITADEL_UNAUTHORIZED
+  ) {
+    return "无法使用当前账号继续，请重新输入密码登录。";
+  }
   if (error.code === "ACCOUNT_SESSION_INVALID") {
     return "当前账号会话无法继续授权，请重新输入密码登录。";
   }
-  return error.message || "无法继续到 Connect。";
+  if (error.code === HANDOFF_ERROR_CODES.HANDOFF_INVALID_PAYLOAD) {
+    return "登录请求无效，请从应用重新进入。";
+  }
+  return "无法使用当前账号继续，请重新输入密码登录。";
 }
 
 function jsonError({ code, message, status }) {

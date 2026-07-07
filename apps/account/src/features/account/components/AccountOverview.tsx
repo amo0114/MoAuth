@@ -134,7 +134,7 @@ export function AccountOverview({
   const [me, setMe] = useState<AccountUser>(user);
   const { data: activities, loading: activitiesLoading, error: activitiesError } =
     useCenterResource(getActivityList);
-  const { data: sessions, loading: sessionsLoading } =
+  const { data: sessionList, loading: sessionsLoading } =
     useCenterResource(getSessionList);
   const { data: applications, loading: applicationsLoading } =
     useCenterResource(getApplicationList);
@@ -160,8 +160,13 @@ export function AccountOverview({
   }, [me.loginName]);
 
   const recentActivities = activities?.slice(0, 3) ?? [];
+  const sessions = sessionList?.sessions ?? [];
   const securityStatus = security?.password?.set ? "已设置" : "待设置";
-  const passkeyText = securityLoading ? "—" : `${security?.passkeys?.count ?? 0}`;
+  const passkeyText = securityLoading
+    ? "—"
+    : security?.passkeys?.supported === false
+      ? "待接入"
+      : `${security?.passkeys?.count ?? 0}`;
 
   return (
     <AccountCenterShell user={me} activePath="/account/overview">
@@ -249,7 +254,7 @@ export function AccountOverview({
                   <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                     <MetricTile
                       label="活动会话"
-                      value={sessionsLoading ? <Skeleton className="h-7 w-12" /> : sessions?.length ?? "—"}
+                      value={sessionsLoading ? <Skeleton className="h-7 w-12" /> : sessions.length}
                       description="正在使用此账号的浏览器与设备会话。"
                       icon={MonitorSmartphone}
                     />

@@ -2,6 +2,8 @@ import { OidcContractError } from "@moauth/connect-contract";
 import {
   ZITADEL_ERROR_CODES,
   changeUserPassword,
+  deactivateHumanUser,
+  deleteHumanUser,
   isZitadelConfigured,
   registerHumanUser,
   requestPasswordReset,
@@ -13,11 +15,28 @@ import {
 
 import { getAccountPublicUrl } from "../config/env.js";
 import { buildAuthContextPath, shouldReturnVerificationCodes } from "../config/runtime.js";
+import { getRegistrationConfig, reserveInviteCode, consumeInviteCode, releaseInviteCode } from "../registration/config-store.js";
+import { getRegistrationReviewStore } from "../registration-review/store.js";
+import { recordAuditEvent } from "../audit/service.js";
 
 
 export async function registerAccountUser(input, options = {}) {
   assertZitadelReady();
+
+  const config = getRegistrationConfig();
+  if (config.mode === "closed") {
+    throw lifecycleError("REGISTRATION_CLOSED", "注册已关闭，请联系管理员。", 403);
+  }
+
   validateRegistrationInput(input);
+
+  if (config.mode === "invite") {
+    return await registerWithInvite(input, options);
+  }
+
+  if (config.mode === "review") {
+    return await registerForReview(input, options);
+  }
 
   const result = await registerHumanUser(
     {
@@ -33,6 +52,118 @@ export async function registerAccountUser(input, options = {}) {
       returnVerificationCode: shouldReturnVerificationCodes(),
     }
   );
+
+  const verifyPath = buildAuthContextPath("/verify-email", input.authRequestId);
+  const redirectUrl = `${getAccountPublicUrl()}${verifyPath}${verifyPath.includes("?") ? "&" : "?"}user_id=${encodeURIComponent(result.userId)}`;
+
+  return {
+    status: "REGISTERED",
+    userId: result.userId,
+    loginName: result.loginName,
+    email: result.email,
+    redirectUrl,
+    dev: devPayload({
+      emailVerificationCode: result.emailCode,
+    }),
+  };
+}
+
+async function registerForReview(input, options) {
+  const result = await registerHumanUser(
+    {
+      email: input.email,
+      password: input.password,
+      displayName: input.displayName,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      username: input.username,
+    },
+    {
+      ...options,
+      returnVerificationCode: shouldReturnVerificationCodes(),
+    }
+  );
+
+  const { userId, loginName, email } = result;
+
+  try {
+    await deactivateHumanUser(userId, options);
+  } catch (error) {
+    try {
+      await deleteHumanUser(userId, options);
+    } catch (deleteError) {
+      recordAuditEvent({
+        eventType: "registration_review_compensation_failed",
+        sub: null,
+        summary: `审核模式补偿失败(1): deactivate+delete 均失败, userId=${userId}`,
+        metadata: { userId, deactivateError: error.message, deleteError: deleteError.message },
+      });
+    }
+    throw lifecycleError("REGISTRATION_REVIEW_FAILED", "注册处理失败，请稍后重试。", 503);
+  }
+
+  try {
+    getRegistrationReviewStore().create({ userId, loginName, email, displayName: input.displayName || loginName });
+  } catch (error) {
+    try {
+      await deleteHumanUser(userId, options);
+    } catch (deleteError) {
+      recordAuditEvent({
+        eventType: "registration_review_compensation_failed",
+        sub: null,
+        summary: `审核模式补偿失败(2): store 写入失败+delete 失败, userId=${userId}`,
+        metadata: { userId, storeError: error.message, deleteError: deleteError.message },
+      });
+    }
+    throw lifecycleError("REGISTRATION_REVIEW_FAILED", "注册处理失败，请稍后重试。", 503);
+  }
+
+  return {
+    status: "PENDING_REVIEW",
+    message: "注册成功，等待管理员审核。",
+    userId,
+    loginName,
+    email,
+  };
+}
+
+async function registerWithInvite(input, options) {
+  if (!input.inviteCode) {
+    throw lifecycleError("INVITE_CODE_REQUIRED", "需要邀请码才能注册。", 403);
+  }
+
+  let reservation;
+  try {
+    reservation = reserveInviteCode(input.inviteCode);
+  } catch (error) {
+    throw lifecycleError("INVITE_CODE_INVALID", error.message, 403);
+  }
+
+  let result;
+  try {
+    result = await registerHumanUser(
+      {
+        email: input.email,
+        password: input.password,
+        displayName: input.displayName,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        username: input.username,
+      },
+      {
+        ...options,
+        returnVerificationCode: shouldReturnVerificationCodes(),
+      }
+    );
+  } catch (error) {
+    releaseInviteCode(reservation.reservationId);
+    throw error;
+  }
+
+  consumeInviteCode(reservation.reservationId, {
+    userId: result.userId,
+    email: result.email,
+  });
 
   const verifyPath = buildAuthContextPath("/verify-email", input.authRequestId);
   const redirectUrl = `${getAccountPublicUrl()}${verifyPath}${verifyPath.includes("?") ? "&" : "?"}user_id=${encodeURIComponent(result.userId)}`;

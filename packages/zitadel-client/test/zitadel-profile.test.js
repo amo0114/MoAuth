@@ -48,6 +48,7 @@ test(
           user: {
             id: "user-1",
             preferredLoginName: "alice",
+            state: "USER_STATE_INACTIVE",
             human: {
               profile: {
                 firstName: "Alice",
@@ -63,6 +64,7 @@ test(
 
     const user = await getHumanUser("user-1", { fetch: fetchMock });
     assert.equal(user.loginName, "alice");
+    assert.equal(user.state, "USER_STATE_INACTIVE");
     assert.equal(user.displayName, "Alice Wonderland");
     assert.equal(user.emailVerified, true);
   })

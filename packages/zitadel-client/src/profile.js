@@ -72,6 +72,7 @@ export function mapHumanUser(user) {
   return Object.freeze({
     id: user?.id || null,
     loginName: user?.preferredLoginName || user?.userName || null,
+    state: user?.state || null,
     email,
     emailVerified: email ? human.email?.isEmailVerified === true : false,
     firstName: profile.firstName || profile.givenName || null,

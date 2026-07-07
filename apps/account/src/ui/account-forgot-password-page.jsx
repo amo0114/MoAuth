@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { getAccountPublicErrorMessage } from "./account-public-error-message.js";
+
 export function AccountForgotPasswordPage({ authRequestId = "" }) {
   const [email, setEmail] = useState("");
   const [notice, setNotice] = useState(null);
@@ -20,7 +22,8 @@ export function AccountForgotPasswordPage({ authRequestId = "" }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error?.message || "请求失败，请重试。");
+        setNotice({ tone: "danger", message: getAccountPublicErrorMessage(data?.error?.code, "forgotPassword") });
+        return;
       }
 
       let message = data.message || "如果该邮箱已注册，我们已发送密码重置说明。";
@@ -28,8 +31,8 @@ export function AccountForgotPasswordPage({ authRequestId = "" }) {
         message += ` 开发模式验证码：${data.dev.verificationCode}`;
       }
       setNotice({ tone: "info", message });
-    } catch (error) {
-      setNotice({ tone: "danger", message: String(error.message || error) });
+    } catch {
+      setNotice({ tone: "danger", message: getAccountPublicErrorMessage(null, "forgotPassword") });
     } finally {
       setSubmitting(false);
     }

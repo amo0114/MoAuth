@@ -34,7 +34,17 @@ export {
   requestPasswordReset,
   setPasswordWithVerificationCode,
   changeUserPassword,
+  deactivateHumanUser,
+  reactivateHumanUser,
+  deleteHumanUser,
 } from "./users.js";
+
+export {
+  listHumanAuthFactors,
+  listHumanPasswordless,
+  mapHumanAuthFactor,
+  mapHumanPasswordlessToken,
+} from "./security.js";
 
 export {
   getCachedAuthRequest,

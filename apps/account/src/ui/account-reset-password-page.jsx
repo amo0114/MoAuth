@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { getAccountPublicErrorMessage } from "./account-public-error-message.js";
+
 export function AccountResetPasswordPage({ authRequestId = "" }) {
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
@@ -26,13 +28,14 @@ export function AccountResetPasswordPage({ authRequestId = "" }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error?.message || "重置失败，请重试。");
+        setNotice({ tone: "danger", message: getAccountPublicErrorMessage(data?.error?.code, "resetPassword") });
+        return;
       }
 
       const loginHref = buildAuthHref("/login", authRequestId);
       window.location.assign(`${loginHref}${loginHref.includes("?") ? "&" : "?"}reset=1`);
-    } catch (error) {
-      setNotice({ tone: "danger", message: String(error.message || error) });
+    } catch {
+      setNotice({ tone: "danger", message: getAccountPublicErrorMessage(null, "resetPassword") });
     } finally {
       setSubmitting(false);
     }

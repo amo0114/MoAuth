@@ -24,7 +24,7 @@ export async function POST(request) {
   } catch {
     return jsonError({
       code: "ACCOUNT_LOGIN_BAD_REQUEST",
-      message: "Login request body must be valid JSON.",
+      message: "请求格式无效，请刷新页面后重试。",
       status: 400,
     });
   }
@@ -55,7 +55,7 @@ export async function POST(request) {
 
       response.cookies.set(
         ACCOUNT_SESSION_COOKIE,
-        signAccountSession(result.accountSession),
+        signAccountSession(result.accountSession, undefined, getSessionRequestMetadata(request)),
         getAccountSessionCookieOptions(`${getAccountPublicUrl()}/api/login`)
       );
       return response;
@@ -88,6 +88,26 @@ export async function POST(request) {
 function prefersRedirectResponse(request) {
   const accept = request.headers.get("accept") || "";
   return accept.includes("text/html");
+}
+
+function getSessionRequestMetadata(request) {
+  const userAgent = String(request.headers.get("user-agent") || "").trim();
+  const forwardedFor = String(request.headers.get("x-forwarded-for") || "")
+    .split(",")[0]
+    .trim();
+  const realIp = String(request.headers.get("x-real-ip") || "").trim();
+  return {
+    userAgent: userAgent || null,
+    ipAddress: forwardedFor || realIp || null,
+    deviceLabel: userAgent ? classifyDeviceLabel(userAgent) : "浏览器会话",
+  };
+}
+
+function classifyDeviceLabel(userAgent) {
+  if (/mobile|android|iphone|ipad|ipod/i.test(userAgent)) {
+    return "移动浏览器";
+  }
+  return "桌面浏览器";
 }
 
 function mapLoginError(error) {
@@ -126,12 +146,18 @@ function humanizeError(error) {
     return "账号或密码不正确，请重试。";
   }
   if (error.code === ZITADEL_ERROR_CODES.ZITADEL_NOT_CONFIGURED) {
-    return "身份核心尚未配置，请联系管理员。";
+    return "登录服务暂时不可用，请稍后重试。";
+  }
+  if (error.code === ZITADEL_ERROR_CODES.ZITADEL_UNAUTHORIZED) {
+    return "登录服务暂时不可用，请稍后重试。";
   }
   if (error.code === "ACCOUNT_LOGIN_BAD_REQUEST") {
-    return error.message;
+    return "请填写账号和密码。";
   }
-  return error.message || "登录失败，请稍后重试。";
+  if (error.code === HANDOFF_ERROR_CODES?.HANDOFF_ISSUE_FAILED) {
+    return "登录跳转暂时不可用，请稍后重试。";
+  }
+  return "登录失败，请稍后重试。";
 }
 
 function jsonError({ code, message, status }) {

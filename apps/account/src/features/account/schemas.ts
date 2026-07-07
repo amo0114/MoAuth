@@ -37,14 +37,31 @@ export const updateAccountProfileSchema = z.object({
 
 export const securitySummarySchema = z.object({
   status: z.string(),
-  password: z.object({ set: z.boolean() }),
+  password: z.object({
+    set: z.boolean(),
+    changeSupported: z.boolean().optional(),
+    status: z.string().optional(),
+    source: z.string().optional(),
+  }),
   mfa: z.object({
     enabled: z.boolean(),
     methods: z.array(z.string()).optional(),
+    supported: z.boolean().optional(),
+    status: z.string().optional(),
+    source: z.string().optional(),
   }),
   passkeys: z.object({
     count: z.number(),
-    items: z.array(z.unknown()).optional(),
+    items: z.array(z.object({
+      id: z.string().nullable().optional(),
+      name: z.string().optional(),
+      state: z.string().nullable().optional(),
+      createdAt: z.union([z.string(), z.number(), z.date()]).nullable().optional(),
+      updatedAt: z.union([z.string(), z.number(), z.date()]).nullable().optional(),
+    })).optional(),
+    supported: z.boolean().optional(),
+    status: z.string().optional(),
+    source: z.string().optional(),
   }),
 });
 
@@ -56,10 +73,19 @@ export const accountSessionSchema = z.object({
   createdAt: z.union([z.string(), z.number(), z.date()]),
   lastSeenAt: z.union([z.string(), z.number(), z.date()]).optional(),
   expiresAt: z.union([z.string(), z.number(), z.date()]).optional(),
+  source: z.string().optional(),
+  revocable: z.boolean().optional(),
+  userAgent: z.string().optional(),
 });
 
 export const sessionListResponseSchema = z.object({
   status: z.string(),
+  capabilities: z.object({
+    source: z.string().optional(),
+    currentSessionRevocation: z.boolean().optional(),
+    remoteSessionListing: z.boolean().optional(),
+    remoteSessionRevocation: z.boolean().optional(),
+  }).optional(),
   sessions: z.array(accountSessionSchema),
 });
 

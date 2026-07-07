@@ -2,6 +2,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { AccountSessionError } from "./errors.js";
 import { decryptAtRest, encryptAtRest } from "./at-rest-crypto.js";
+import { getAccountSessionStore } from "./account-session-store.js";
 import {
   ACCOUNT_SESSION_COOKIE,
   ACCOUNT_SESSION_TTL_SECONDS,
@@ -14,6 +15,7 @@ export {
 } from "./constants.js";
 
 const VERSION = 1;
+const COOKIE_VERSION = "v2";
 const DEV_SESSION_SECRET = "moauth-account-dev-session-secret-change-me";
 const COOKIE_PAYLOAD_PURPOSE = "moauth-account-session-cookie";
 
@@ -45,6 +47,7 @@ export function createAccountSession({
     isAdmin: Boolean(isAdmin),
     createdAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + ACCOUNT_SESSION_TTL_SECONDS * 1000).toISOString(),
+    lastSeenAt: now.toISOString(),
   });
 }
 
@@ -69,10 +72,10 @@ export function readOptionalAccountSession(cookieValue, now = new Date(), secret
   }
 }
 
-export function signAccountSession(session, secret = getSessionSecret()) {
-  const payload = encryptAtRest(serializeSessionRecord(session), secret, COOKIE_PAYLOAD_PURPOSE);
-  const signature = signPayload(payload, secret);
-  return `${payload}.${signature}`;
+export function signAccountSession(session, secret = getSessionSecret(), metadata = {}) {
+  const storedSession = getAccountSessionStore().save(session, metadata);
+  const signature = signCookieSessionId(storedSession.id, secret);
+  return `${COOKIE_VERSION}.${storedSession.id}.${signature}`;
 }
 
 export function readAccountSessionFromCookie(cookieValue, now = new Date(), secret = getSessionSecret()) {
@@ -80,8 +83,40 @@ export function readAccountSessionFromCookie(cookieValue, now = new Date(), secr
     throw new AccountSessionError("ACCOUNT_SESSION_REQUIRED", "Account session cookie is required.");
   }
 
-  const [payload, signature, extra] = String(cookieValue).split(".");
-  if (!payload || !signature || extra) {
+  const parts = String(cookieValue).split(".");
+  if (parts.length === 3 && parts[0] === COOKIE_VERSION) {
+    return readStoredAccountSessionFromCookie(parts, now, secret);
+  }
+
+  if (parts.length === 2) {
+    return readLegacyAccountSessionFromCookie(parts, now, secret);
+  }
+
+  throw new AccountSessionError("ACCOUNT_SESSION_INVALID", "Account session cookie format is invalid.");
+}
+
+function readStoredAccountSessionFromCookie(parts, now, secret) {
+  const [, sessionId, signature] = parts;
+  if (!sessionId || !signature) {
+    throw new AccountSessionError("ACCOUNT_SESSION_INVALID", "Account session cookie format is invalid.");
+  }
+
+  const expectedSignature = signCookieSessionId(sessionId, secret);
+  if (!safeEqual(signature, expectedSignature)) {
+    throw new AccountSessionError("ACCOUNT_SESSION_INVALID", "Account session cookie signature is invalid.");
+  }
+
+  const stored = getAccountSessionStore().touch(sessionId, { now });
+  if (!stored) {
+    throw new AccountSessionError("ACCOUNT_SESSION_INVALID", "Account session was revoked or is not available.");
+  }
+
+  return validateSessionRecord(stored, now);
+}
+
+function readLegacyAccountSessionFromCookie(parts, now, secret) {
+  const [payload, signature] = parts;
+  if (!payload || !signature) {
     throw new AccountSessionError("ACCOUNT_SESSION_INVALID", "Account session cookie format is invalid.");
   }
 
@@ -97,6 +132,10 @@ export function readAccountSessionFromCookie(cookieValue, now = new Date(), secr
     throw new AccountSessionError("ACCOUNT_SESSION_INVALID", "Account session cookie payload is invalid.");
   }
 
+  return validateSessionRecord(session, now);
+}
+
+function validateSessionRecord(session, now) {
   if (session.version !== VERSION) {
     throw new AccountSessionError("ACCOUNT_SESSION_INVALID", "Account session version is unsupported.");
   }
@@ -112,8 +151,10 @@ export function readAccountSessionFromCookie(cookieValue, now = new Date(), secr
   return Object.freeze(session);
 }
 
-export function revokeAccountSessionCookie() {
-  // Stateless cookie sessions are cleared client-side on logout.
+export function revokeAccountSessionCookie(cookieValue, secret = getSessionSecret()) {
+  const sessionId = readCookieSessionId(cookieValue, secret);
+  if (!sessionId) return null;
+  return getAccountSessionStore().revokeById(sessionId);
 }
 
 export function getAccountSessionCookieOptions(requestUrl) {
@@ -181,6 +222,19 @@ function deserializeSessionRecord(payload) {
 
 function signPayload(payload, secret) {
   return base64UrlEncode(createHmac("sha256", secret).update(payload).digest());
+}
+
+function signCookieSessionId(sessionId, secret) {
+  return signPayload(`${COOKIE_VERSION}:${sessionId}`, secret);
+}
+
+function readCookieSessionId(cookieValue, secret) {
+  if (!cookieValue) return null;
+  const [version, sessionId, signature, extra] = String(cookieValue).split(".");
+  if (version !== COOKIE_VERSION || !sessionId || !signature || extra) return null;
+  const expectedSignature = signCookieSessionId(sessionId, secret);
+  if (!safeEqual(signature, expectedSignature)) return null;
+  return sessionId;
 }
 
 function safeEqual(left, right) {

@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  deactivateHumanUser,
+  deleteHumanUser,
   registerHumanUser,
+  reactivateHumanUser,
   requestPasswordReset,
   searchHumanUserByEmail,
   setPasswordWithVerificationCode,
@@ -108,5 +111,21 @@ test(
     const reset = await requestPasswordReset("user-1", { fetch: fetchMock, returnVerificationCode: true });
     assert.equal(reset.verificationCode, "RESET1");
     await setPasswordWithVerificationCode("user-1", "RESET1", "NewPass2026!", { fetch: fetchMock });
+  })
+);
+
+test(
+  "human user lifecycle helpers call v2 status endpoints",
+  withEnv(requiredEnv, async () => {
+    const fetchMock = makeMockFetch({
+      "PUT https://zitadel.example.com/v2/users/user-1/deactivate": { body: {} },
+      "PUT https://zitadel.example.com/v2/users/user-1/reactivate": { body: {} },
+      "DELETE https://zitadel.example.com/v2/users/user-1": { body: {} },
+    });
+
+    await deactivateHumanUser("user-1", { fetch: fetchMock });
+    await reactivateHumanUser("user-1", { fetch: fetchMock });
+    const deleted = await deleteHumanUser("user-1", { fetch: fetchMock });
+    assert.equal(deleted.userId, "user-1");
   })
 );

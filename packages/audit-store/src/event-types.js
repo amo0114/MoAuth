@@ -15,4 +15,12 @@ export const AUDIT_EVENT_TYPES = Object.freeze({
   CONSOLE_CLIENT_ACTIVATED: "console_client_activated",
   CONSOLE_APPLICATION_REQUEST_APPROVED: "console_application_request_approved",
   CONSOLE_APPLICATION_REQUEST_REJECTED: "console_application_request_rejected",
+  REGISTRATION_CONFIG_UPDATED: "registration_config_updated",
+  REGISTRATION_REVIEW_COMPENSATION_FAILED: "registration_review_compensation_failed",
+  REGISTRATION_APPROVED: "registration_approved",
+  REGISTRATION_REJECTED: "registration_rejected",
+  REGISTRATION_APPROVE_FAILED: "registration_approve_failed",
+  REGISTRATION_REJECT_FAILED: "registration_reject_failed",
+  ADMIN_USER_ACTIVE: "admin_user_active",
+  ADMIN_USER_DISABLED: "admin_user_disabled",
 });

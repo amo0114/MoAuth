@@ -11,7 +11,7 @@ export async function POST(request) {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { error: { code: "PASSWORD_RESET_BAD_REQUEST", message: "Request body must be valid JSON." } },
+      { error: { code: "PASSWORD_RESET_BAD_REQUEST", message: "请求格式无效，请刷新页面后重试。" } },
       { status: 400 }
     );
   }

@@ -7,14 +7,25 @@ import { getUserFriendlyErrorMessage } from "../../../lib/errors";
 import { cn } from "../../../lib/utils.js";
 import { changePassword } from "../api/changePassword";
 import { getSecuritySummary } from "../api/getSecuritySummary";
+import { getSessionList } from "../api/getSessionList";
 import { useCenterResource } from "../hooks/useCenterResource";
 import type { AccountUser } from "../types";
 import { AccountCenterShell } from "./AccountCenterShell";
 import { SectionPageLayout } from "../../../components/layout/SectionPageLayout";
 import { CardGroup, Row, Divider, LiquidButton } from "./AccountUI";
 
+function formatTime(value: string | number | Date | undefined) {
+  if (!value) return "—";
+  try {
+    return new Date(value).toLocaleString("zh-CN");
+  } catch {
+    return String(value);
+  }
+}
+
 export function AccountSecurity({ user }: { user: AccountUser }) {
   const { data, error, loading } = useCenterResource(getSecuritySummary);
+  const { data: sessionList, loading: sessionsLoading } = useCenterResource(getSessionList);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [passwordNotice, setPasswordNotice] = useState<{
@@ -23,6 +34,26 @@ export function AccountSecurity({ user }: { user: AccountUser }) {
   } | null>(null);
   const [changingPassword, setChangingPassword] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
+  const currentSession = sessionList?.sessions?.find((session) => session.current) || sessionList?.sessions?.[0] || null;
+  const passwordChangeSupported = data?.password?.changeSupported !== false;
+  const mfaSupported = data?.mfa?.supported !== false;
+  const passkeySupported = data?.passkeys?.supported !== false;
+  const mfaBackendUnavailable = data?.mfa?.status === "backend_unavailable";
+  const passkeyBackendUnavailable = data?.passkeys?.status === "backend_unavailable";
+  const mfaValue = !mfaSupported
+    ? "待接入"
+    : mfaBackendUnavailable
+      ? "暂不可用"
+      : data?.mfa?.enabled
+        ? "已启用"
+        : "未启用";
+  const passkeyValue = !passkeySupported
+    ? "待接入"
+    : passkeyBackendUnavailable
+      ? "暂不可用"
+      : `${data?.passkeys?.count ?? 0} 个设备`;
+  const mfaActionText = !mfaSupported ? "未接入" : mfaBackendUnavailable ? "暂不可用" : "查看状态";
+  const passkeyActionText = !passkeySupported ? "未接入" : passkeyBackendUnavailable ? "暂不可用" : "查看状态";
 
   return (
     <AccountCenterShell user={user} activePath="/account/security">
@@ -56,8 +87,13 @@ export function AccountSecurity({ user }: { user: AccountUser }) {
                     description="定期更新密码有助于保护账户安全"
                     value={data.password?.set ? "已设置" : "未设置"}
                     action={
-                      <LiquidButton variant="secondary" onClick={() => setIsChanging(true)} className="px-5">
-                        修改密码
+                      <LiquidButton
+                        variant="secondary"
+                        onClick={() => setIsChanging(true)}
+                        className="px-5"
+                        disabled={!passwordChangeSupported}
+                      >
+                        {passwordChangeSupported ? "修改密码" : "暂不可用"}
                       </LiquidButton>
                     }
                   />
@@ -135,15 +171,15 @@ export function AccountSecurity({ user }: { user: AccountUser }) {
                 )}
               </CardGroup>
 
-              <CardGroup title="高级安全" footer="相关安全功能将在后续版本更替中全面开放。" delayIndex={2}>
+              <CardGroup title="高级安全" footer="启用或移除 MFA / Passkey 需要进入登录安全流程完成。" delayIndex={2}>
                 <Row
                   icon={<ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-500" />}
                   label="多因素认证 (MFA)"
                   description="为账户增加一层额外的安全保护"
-                  value={data.mfa?.enabled ? "已启用" : "未启用"}
+                  value={mfaValue}
                   action={
                     <LiquidButton variant="secondary" className="opacity-50 cursor-not-allowed px-5 text-[13px]" disabled>
-                      即将推出
+                      {mfaActionText}
                     </LiquidButton>
                   }
                 />
@@ -152,10 +188,10 @@ export function AccountSecurity({ user }: { user: AccountUser }) {
                   icon={<Fingerprint className="w-5 h-5 text-indigo-500" />}
                   label="Passkey"
                   description="使用指纹、面容或设备 PIN 码更安全地登录"
-                  value={`${data.passkeys?.count ?? 0} 个设备`}
+                  value={passkeyValue}
                   action={
                     <LiquidButton variant="secondary" className="opacity-50 cursor-not-allowed px-5 text-[13px]" disabled>
-                      即将推出
+                      {passkeyActionText}
                     </LiquidButton>
                   }
                 />
@@ -193,29 +229,40 @@ export function AccountSecurity({ user }: { user: AccountUser }) {
                 <div className="flex gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#C4612F] mt-1.5 shrink-0"></div>
                   <p className="text-[#5C635D] dark:text-zinc-400 leading-relaxed">
-                    启用 MFA 可大幅提升账户安全性
+                    MFA 接入完成后应优先启用，提升账户安全性
                   </p>
                 </div>
               </div>
             </div>
           </CardGroup>
 
-          <CardGroup title="最近登录" delayIndex={4}>
+          <CardGroup title="当前会话" delayIndex={4}>
             <div className="p-6 space-y-3">
-              <div className="flex items-start gap-3 pb-3 border-b border-[#E7E1D7] dark:border-zinc-800">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 animate-gentle-pulse"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-[#1F2421] dark:text-zinc-200">当前会话</p>
-                  <p className="text-xs text-[#5C635D] dark:text-zinc-400 mt-1">Chrome · 上海</p>
+              {sessionsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-[#5C635D] dark:text-zinc-400">
+                  <Loader2 className="size-4 animate-spin" />
+                  正在读取会话...
                 </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-[#5C635D] mt-1.5"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-[#1F2421] dark:text-zinc-200">昨天 14:20</p>
-                  <p className="text-xs text-[#5C635D] dark:text-zinc-400 mt-1">Safari · 北京</p>
-                </div>
-              </div>
+              ) : null}
+              {!sessionsLoading && currentSession ? (
+                <>
+                  <div className="flex items-start gap-3 pb-3 border-b border-[#E7E1D7] dark:border-zinc-800">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 animate-gentle-pulse"></div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-[#1F2421] dark:text-zinc-200">{currentSession.label}</p>
+                      <p className="text-xs text-[#5C635D] dark:text-zinc-400 mt-1">{currentSession.kind}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-xs text-[#5C635D] dark:text-zinc-400">
+                    <p>创建时间：{formatTime(currentSession.createdAt)}</p>
+                    <p>过期时间：{formatTime(currentSession.expiresAt)}</p>
+                    <p>来源：Account 服务端会话</p>
+                  </div>
+                </>
+              ) : null}
+              {!sessionsLoading && !currentSession ? (
+                <p className="text-sm text-[#5C635D] dark:text-zinc-400">当前没有可显示的 Account 会话。</p>
+              ) : null}
             </div>
           </CardGroup>
         </div>

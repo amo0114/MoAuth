@@ -8,7 +8,7 @@ import { Eye, EyeOff, Fingerprint } from "lucide-react";
 import { BrandLogo } from "../../../components/brand/BrandLogo";
 
 import { cn } from "../../../lib/utils.js";
-import { getUserFriendlyErrorMessage } from "../../../lib/errors";
+import { getAccountPublicErrorMessage } from "../../../ui/account-public-error-message.js";
 import { loginSchema } from "../schemas";
 import type { LoginExistingUser } from "../types";
 import { AuthLayout } from "./AuthLayout";
@@ -92,7 +92,7 @@ export function LoginPage({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        triggerError(getUserFriendlyErrorMessage(new Error(data?.error?.message || "无法使用当前账号继续，请重新登录。")));
+        triggerError(getAccountPublicErrorMessage(data?.error?.code, "continueLogin"));
         setShowPasswordForm(true);
         setContinuing(false);
         return;
@@ -100,8 +100,8 @@ export function LoginPage({
 
       // 触发成功态动画
       triggerSuccessAnimation(data.redirectUrl);
-    } catch (cause) {
-      triggerError(getUserFriendlyErrorMessage(cause));
+    } catch {
+      triggerError(getAccountPublicErrorMessage(null, "continueLogin"));
       setContinuing(false);
     }
   }
@@ -123,14 +123,14 @@ export function LoginPage({
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        triggerError(getUserFriendlyErrorMessage(new Error(data?.error?.message || "登录失败，请重试。")));
+        triggerError(getAccountPublicErrorMessage(data?.error?.code, "login"));
         return;
       }
 
       // 触发成功态动画
       triggerSuccessAnimation(data.redirectUrl);
-    } catch (cause) {
-      triggerError(getUserFriendlyErrorMessage(cause));
+    } catch {
+      triggerError(getAccountPublicErrorMessage(null, "login"));
     }
   }
 

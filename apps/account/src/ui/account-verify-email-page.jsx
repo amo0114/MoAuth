@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { getAccountPublicErrorMessage } from "./account-public-error-message.js";
+
 export function AccountVerifyEmailPage({ userId = "", authRequestId = "", initialCode = "" }) {
   const [verificationCode, setVerificationCode] = useState(initialCode);
   const [notice, setNotice] = useState(null);
@@ -21,13 +23,14 @@ export function AccountVerifyEmailPage({ userId = "", authRequestId = "", initia
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error?.message || "验证失败，请重试。");
+        setNotice({ tone: "danger", message: getAccountPublicErrorMessage(data?.error?.code, "verifyEmail") });
+        return;
       }
 
       const loginHref = buildAuthHref("/login", authRequestId);
       window.location.assign(`${loginHref}${loginHref.includes("?") ? "&" : "?"}registered=1`);
-    } catch (error) {
-      setNotice({ tone: "danger", message: String(error.message || error) });
+    } catch {
+      setNotice({ tone: "danger", message: getAccountPublicErrorMessage(null, "verifyEmail") });
     } finally {
       setSubmitting(false);
     }
@@ -44,7 +47,8 @@ export function AccountVerifyEmailPage({ userId = "", authRequestId = "", initia
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error?.message || "发送失败，请重试。");
+        setNotice({ tone: "danger", message: getAccountPublicErrorMessage(data?.error?.code, "resendVerification") });
+        return;
       }
       let message = "验证邮件已重新发送。";
       if (data.dev?.emailVerificationCode) {
@@ -52,8 +56,8 @@ export function AccountVerifyEmailPage({ userId = "", authRequestId = "", initia
         setVerificationCode(data.dev.emailVerificationCode);
       }
       setNotice({ tone: "info", message });
-    } catch (error) {
-      setNotice({ tone: "danger", message: String(error.message || error) });
+    } catch {
+      setNotice({ tone: "danger", message: getAccountPublicErrorMessage(null, "resendVerification") });
     } finally {
       setResending(false);
     }

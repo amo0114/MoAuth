@@ -117,6 +117,51 @@ export async function verifyUserEmail(userId, verificationCode, options = {}) {
   );
 }
 
+export async function deactivateHumanUser(userId, options = {}) {
+  return putUserAction(
+    userId,
+    "/deactivate",
+    {},
+    "Zitadel rejected the user deactivation request.",
+    options
+  );
+}
+
+export async function reactivateHumanUser(userId, options = {}) {
+  return putUserAction(
+    userId,
+    "/reactivate",
+    {},
+    "Zitadel rejected the user reactivation request.",
+    options
+  );
+}
+
+export async function deleteHumanUser(userId, options = {}) {
+  const config = options.config || getZitadelConfig();
+  const fetcher = buildZitadelFetch(config, options.fetch);
+  const headers = buildOrgHeaders(config, options.headers);
+
+  const response = await fetcher(`/v2/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+    headers,
+  });
+
+  if (!response.ok) {
+    const payload = await parseJson(response);
+    if (response.status === 404) {
+      throw new OidcContractError(
+        ZITADEL_ERROR_CODES.ZITADEL_AUTH_REQUEST_NOT_FOUND,
+        "Zitadel user was not found.",
+        { userId, status: 404, payload }
+      );
+    }
+    throw requestFailed("Zitadel rejected the user deletion request.", response.status, payload);
+  }
+
+  return { userId };
+}
+
 export async function resendEmailVerificationCode(userId, options = {}) {
   const delivery = options.returnVerificationCode ? { returnCode: {} } : { sendCode: {} };
   const payload = await postUserAction(
@@ -184,6 +229,39 @@ async function postUserAction(userId, suffix, body, message, options = {}) {
 
   const response = await fetcher(`/v2/users/${encodeURIComponent(userId)}${suffix}`, {
     method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new OidcContractError(
+        ZITADEL_ERROR_CODES.ZITADEL_AUTH_REQUEST_NOT_FOUND,
+        "Zitadel user was not found.",
+        { userId, payload }
+      );
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw new OidcContractError(
+        ZITADEL_ERROR_CODES.ZITADEL_CREDENTIALS_INVALID,
+        message,
+        { status: response.status, payload }
+      );
+    }
+    throw requestFailed(message, response.status, payload);
+  }
+
+  return payload;
+}
+
+async function putUserAction(userId, suffix, body, message, options = {}) {
+  const config = options.config || getZitadelConfig();
+  const fetcher = buildZitadelFetch(config, options.fetch);
+  const headers = buildOrgHeaders(config, options.headers);
+
+  const response = await fetcher(`/v2/users/${encodeURIComponent(userId)}${suffix}`, {
+    method: "PUT",
     headers,
     body: JSON.stringify(body),
   });

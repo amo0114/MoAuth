@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -10,7 +13,11 @@ import {
   signAccountSession,
   toPublicAccountUser,
 } from "../src/session/account-session.js";
-import { resetAccountSessionStoreForTests } from "../src/session/account-session-store.js";
+import {
+  createFileAccountSessionStore,
+  getAccountSessionStore,
+  resetAccountSessionStoreForTests,
+} from "../src/session/account-session-store.js";
 import {
   completeAccountLogin,
   completeStandaloneLogin,
@@ -51,6 +58,7 @@ test("account session cookie is opaque and round-trips", () => {
   const session = makeSession();
   const cookieValue = signAccountSession(session, SECRET);
   assert.doesNotMatch(cookieValue, /tok-secret/);
+  assert.doesNotMatch(cookieValue, /alice/);
   const verified = readAccountSessionFromCookie(cookieValue, NOW, SECRET);
   assert.equal(verified.loginName, "alice");
   assert.equal(verified.sessionToken, "tok-secret");
@@ -63,19 +71,55 @@ test("toPublicAccountUser omits sessionToken", () => {
   assert.equal("sessionToken" in user, false);
 });
 
-test("account session cookie survives without server-side session store", () => {
+test("account session cookie requires server-side session store", () => {
   resetAccountSessionStoreForTests();
   process.env.MOAUTH_ACCOUNT_SESSION_SECRET = SECRET;
   const cookieValue = signAccountSession(makeSession(), SECRET);
-  const verified = readAccountSessionFromCookie(cookieValue, NOW, SECRET);
-  assert.equal(verified.loginName, "alice");
-  assert.equal(verified.sessionToken, "tok-secret");
+  resetAccountSessionStoreForTests();
+  assert.throws(
+    () => readAccountSessionFromCookie(cookieValue, NOW, SECRET),
+    (error) => error.code === "ACCOUNT_SESSION_INVALID"
+  );
   process.env = { ...origEnv };
 });
 
-test("revokeAccountSessionCookie is a no-op for stateless cookies", () => {
-  const cookieValue = signAccountSession(makeSession(), SECRET);
-  assert.doesNotThrow(() => revokeAccountSessionCookie(cookieValue, SECRET));
+test("revokeAccountSessionCookie removes the server-side session", () => {
+  resetAccountSessionStoreForTests();
+  const session = makeSession();
+  const cookieValue = signAccountSession(session, SECRET);
+  assert.equal(getAccountSessionStore().listBySub("user-1", { now: NOW }).length, 1);
+  const revoked = revokeAccountSessionCookie(cookieValue, SECRET);
+  assert.equal(revoked.id, session.id);
+  assert.equal(getAccountSessionStore().listBySub("user-1", { now: NOW }).length, 0);
+});
+
+test("file account session store persists encrypted session records", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "moauth-account-sessions-"));
+  try {
+    const filePath = path.join(dir, "sessions.json");
+    const store = createFileAccountSessionStore({
+      filePath,
+      secret: SECRET,
+      now: () => NOW,
+    });
+
+    store.save(makeSession(), { deviceLabel: "桌面浏览器" });
+    const raw = readFileSync(filePath, "utf8");
+    assert.doesNotMatch(raw, /tok-secret/);
+    assert.doesNotMatch(raw, /alice@example.com/);
+
+    const reloaded = createFileAccountSessionStore({
+      filePath,
+      secret: SECRET,
+      now: () => NOW,
+    });
+    const sessions = reloaded.listBySub("user-1", { now: NOW });
+    assert.equal(sessions.length, 1);
+    assert.equal(sessions[0].sessionToken, "tok-secret");
+    assert.equal(sessions[0].deviceLabel, "桌面浏览器");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("ACCOUNT_SESSION_COOKIE name is stable", () => {
