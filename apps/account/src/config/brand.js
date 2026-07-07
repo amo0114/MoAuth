@@ -1,4 +1,4 @@
-const DEFAULT_PRODUCT_NAME = "MoYuan ID";
+const DEFAULT_PRODUCT_NAME = "Aura";
 
 function publicEnv(value, fallback) {
   return value && value.trim() ? value : fallback;
