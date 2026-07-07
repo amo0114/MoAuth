@@ -35,6 +35,20 @@ test("creates and lists active connect clients", () => {
   assert.equal(clients[0].displayName, "SubBoost");
 });
 
+test("exposes client onboarding aliases", () => {
+  const store = createMemoryClientRegistryStore({
+    now: () => new Date("2026-07-02T00:00:00.000Z"),
+  });
+  const created = store.registerClient(SUBBOOST);
+
+  assert.equal(created.clientId, SUBBOOST.clientId);
+  assert.equal(store.getClient(SUBBOOST.clientId)?.id, SUBBOOST.id);
+  assert.deepEqual(
+    store.listClients().map((client) => client.clientId),
+    [SUBBOOST.clientId]
+  );
+});
+
 test("rejects production loopback redirect URIs", () => {
   const store = createMemoryClientRegistryStore();
   assert.throws(

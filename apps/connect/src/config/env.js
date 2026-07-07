@@ -39,6 +39,10 @@ export function getHandoffInternalToken() {
   return String(process.env.MOAUTH_HANDOFF_INTERNAL_TOKEN || "").trim();
 }
 
+export function getConnectAdminApiToken() {
+  return String(process.env.MOAUTH_CONNECT_ADMIN_API_TOKEN || "").trim();
+}
+
 export function getAccountHandoffConsumeUrl() {
   return `${getAccountPublicUrl()}/api/handoff/consume`;
 }

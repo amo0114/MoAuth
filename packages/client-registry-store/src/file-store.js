@@ -70,6 +70,15 @@ export function createFileClientRegistryStore(options = {}) {
       ensureLoaded();
       return memory.listActiveConnectClients(...args);
     },
+    listClients: (...args) => {
+      ensureLoaded();
+      return memory.listClients(...args);
+    },
+    getClient: (...args) => {
+      ensureLoaded();
+      return memory.getClient(...args);
+    },
+    registerClient: wrap(memory.registerClient.bind(memory)),
     create: wrap(memory.create.bind(memory)),
     update: wrap(memory.update.bind(memory)),
     disable: wrap(memory.disable.bind(memory)),
