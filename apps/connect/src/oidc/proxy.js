@@ -3,6 +3,8 @@ export {
   annotateProductionIdTokenSigningDiscovery,
   normalizeConnectPublicUrl,
   proxyToZitadel,
+  resolveProxyPublicHost,
+  resolveProxyPublicProto,
   rewriteDiscovery,
   rewriteHostedLoginLocation,
   rewriteLocation,

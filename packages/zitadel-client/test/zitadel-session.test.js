@@ -75,12 +75,14 @@ test("getZitadelConfig falls back API_BASE to ISSUER when API_BASE unset", () =>
   process.env = { ...origEnv };
 });
 
-test("getZitadelConfig rejects when API_BASE and ISSUER point to different domains", () => {
+test("getZitadelConfig allows internal API_BASE with public ISSUER for Docker proxying", () => {
   process.env = { ...origEnv };
   process.env.ZITADEL_ISSUER = "https://id.example.com";
-  process.env.ZITADEL_API_BASE = "https://api.other.com";
+  process.env.ZITADEL_API_BASE = "http://zitadel:8080";
   process.env.ZITADEL_SERVICE_USER_TOKEN = "tok";
-  assert.throws(() => getZitadelConfig(), { code: ZITADEL_ERROR_CODES.ZITADEL_NOT_CONFIGURED });
+  const config = getZitadelConfig();
+  assert.equal(config.issuer, "https://id.example.com");
+  assert.equal(config.apiBase, "http://zitadel:8080");
   process.env = { ...origEnv };
 });
 

@@ -49,13 +49,6 @@ function optionalEnv(name) {
 export function getZitadelConfig() {
   const issuer = normalizeUrl(requiredEnv(ZITADEL_ISSUER_ENV));
   const apiBase = normalizeUrl(optionalEnv(ZITADEL_API_BASE_ENV)) || issuer;
-  if (apiBase !== issuer && process.env.ZITADEL_API_BASE && process.env.ZITADEL_ISSUER) {
-    throw new ZitadelConfigError(
-      ZITADEL_ERROR_CODES.ZITADEL_NOT_CONFIGURED,
-      "ZITADEL_API_BASE and ZITADEL_ISSUER must point to the same Zitadel instance. Zitadel Cloud / self-host both serve issuer and API on the same domain; leave ZITADEL_API_BASE unset to inherit ZITADEL_ISSUER.",
-      { apiBase, issuer }
-    );
-  }
   return Object.freeze({
     apiBase,
     issuer,
