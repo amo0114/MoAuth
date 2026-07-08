@@ -58,13 +58,16 @@ services:
     command: >
       start-from-init
       --masterkey "${ZITADEL_MASTERKEY}"
-      --tlsMode disabled
+      --tlsMode external
     environment:
       ZITADEL_MASTERKEY: ${ZITADEL_MASTERKEY}
       ZITADEL_EXTERNALDOMAIN: ${ZITADEL_HOST}
       ZITADEL_EXTERNALPORT: 443
       ZITADEL_EXTERNALSECURE: "true"
       ZITADEL_TLS_ENABLED: "false"
+      # Nginx/Cloudflare terminate TLS in front of Zitadel; trust forwarded Host/Proto
+      # so /ui/console/assets/environment.json emits https://id.<domain> as the API base.
+      ZITADEL_HTTP_TRUSTEDPROXIES_0: ${ZITADEL_HTTP_TRUSTEDPROXIES:-0.0.0.0/0}
 
       ZITADEL_DATABASE_POSTGRES_HOST: zitadel-db
       ZITADEL_DATABASE_POSTGRES_PORT: 5432

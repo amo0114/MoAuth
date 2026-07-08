@@ -95,7 +95,13 @@ export function buildZitadelFetch(config = getZitadelConfig(), underlyingFetch =
     headers.set("Accept", "application/json");
     headers.set("Connection", "keep-alive");
     if (sendIssuerHostHeader) {
+      // Node fetch ignores Host overrides for a different upstream URL; Zitadel v4
+      // resolves the instance from x-zitadel-instance-host / X-Forwarded-Host.
       headers.set("Host", issuerHost);
+      headers.set("x-zitadel-instance-host", issuerHost);
+      headers.set("x-zitadel-public-host", issuerHost);
+      headers.set("X-Forwarded-Host", issuerHost);
+      headers.set("X-Forwarded-Proto", "https");
     }
 
     const startTime = Date.now();

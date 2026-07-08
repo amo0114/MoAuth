@@ -88,6 +88,10 @@ test("buildZitadelFetch sets Host from issuer when API_BASE is internal", async 
   const fetcher = buildZitadelFetch(config, fetchMock);
   await fetcher("/v2/sessions/test", { method: "GET" });
   assert.equal(calls[0].init.headers.get("Host"), "id.example.com");
+  assert.equal(calls[0].init.headers.get("x-zitadel-instance-host"), "id.example.com");
+  assert.equal(calls[0].init.headers.get("x-zitadel-public-host"), "id.example.com");
+  assert.equal(calls[0].init.headers.get("X-Forwarded-Host"), "id.example.com");
+  assert.equal(calls[0].init.headers.get("X-Forwarded-Proto"), "https");
   process.env = { ...origEnv };
 });
 
