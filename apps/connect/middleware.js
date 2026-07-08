@@ -27,5 +27,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/oidc/:path*", "/.well-known/:path*"],
+  matcher: ["/oauth/:path*", "/oidc/:path*", "/.well-known/:path*"],
 };

@@ -238,17 +238,16 @@ export async function proxyToZitadel(request, options = {}) {
     if (HOP_BY_HOP_HEADERS.has(key.toLowerCase())) continue;
     headers.set(key, value);
   }
-  const publicHost = resolveProxyPublicHost(request, connectIssuer);
   const publicProto = resolveProxyPublicProto(request, connectIssuer);
+  // Self-hosted Zitadel only trusts its external domain (id.<domain>), not Connect's public host.
+  const zitadelHost = new URL(config.issuer).host;
 
-  headers.set("X-Forwarded-Host", publicHost);
+  headers.set("X-Forwarded-Host", zitadelHost);
   headers.set("X-Forwarded-Proto", publicProto);
   headers.set("X-Forwarded-Path", requestUrl.pathname);
-
-  const upstreamHost = new URL(config.issuer).host;
-  headers.set("Host", upstreamHost);
-  headers.set("x-zitadel-public-host", publicHost);
-  headers.set("x-zitadel-instance-host", upstreamHost);
+  headers.set("Host", zitadelHost);
+  headers.set("x-zitadel-public-host", zitadelHost);
+  headers.set("x-zitadel-instance-host", zitadelHost);
 
   const init = {
     method: request.method,

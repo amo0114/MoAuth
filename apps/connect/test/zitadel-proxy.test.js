@@ -219,9 +219,9 @@ test("proxyToZitadel uses public host when request url is 0.0.0.0 behind reverse
   const response = await proxyToZitadel(request, { fetch: fetchMock });
 
   assert.equal(response.status, 200);
-  assert.equal(calls[0].init.headers.get("X-Forwarded-Host"), "connect.example.com");
+  assert.equal(calls[0].init.headers.get("X-Forwarded-Host"), "id.zitadel.example.com");
   assert.equal(calls[0].init.headers.get("X-Forwarded-Proto"), "https");
-  assert.equal(calls[0].init.headers.get("x-zitadel-public-host"), "connect.example.com");
+  assert.equal(calls[0].init.headers.get("x-zitadel-public-host"), "id.zitadel.example.com");
   assert.equal(calls[0].init.headers.get("Host"), "id.zitadel.example.com");
 }));
 
@@ -263,9 +263,9 @@ test("proxyToZitadel forwards GET authorize to upstream and rewrites Location re
   assert.equal(response.status, 302);
   assert.equal(response.headers.get("location"), "https://connect.example.com/login?authRequest=V2_abc");
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].init.headers.get("X-Forwarded-Host"), "connect.example.com");
+  assert.equal(calls[0].init.headers.get("X-Forwarded-Host"), "id.zitadel.example.com");
   assert.equal(calls[0].init.headers.get("X-Forwarded-Proto"), "https");
-  assert.equal(calls[0].init.headers.get("x-zitadel-public-host"), "connect.example.com");
+  assert.equal(calls[0].init.headers.get("x-zitadel-public-host"), "id.zitadel.example.com");
   assert.equal(calls[0].init.headers.get("x-zitadel-instance-host"), "id.zitadel.example.com");
 }));
 
