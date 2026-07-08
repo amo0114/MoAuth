@@ -103,6 +103,52 @@ function isLoopbackHost(hostname) {
   return LOOPBACK_HOSTS.has(String(hostname || "").toLowerCase());
 }
 
+function isUntrustedProxyHost(hostname) {
+  const normalized = String(hostname || "").toLowerCase();
+  return LOOPBACK_HOSTS.has(normalized) || normalized === "0.0.0.0";
+}
+
+/** Public host/proto for upstream Zitadel — never forward container bind addresses like 0.0.0.0:3000. */
+export function resolveProxyPublicHost(request, connectIssuer) {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  if (forwardedHost) {
+    const host = forwardedHost.split(",")[0].trim();
+    const hostname = host.split(":")[0];
+    if (host && !isUntrustedProxyHost(hostname)) {
+      return host;
+    }
+  }
+
+  let requestHost = "";
+  try {
+    requestHost = new URL(request.url).host;
+  } catch {
+    requestHost = "";
+  }
+  if (requestHost) {
+    const hostname = requestHost.split(":")[0];
+    if (!isUntrustedProxyHost(hostname)) {
+      return requestHost;
+    }
+  }
+
+  return new URL(connectIssuer).host;
+}
+
+export function resolveProxyPublicProto(request, connectIssuer) {
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  if (forwardedProto) {
+    return forwardedProto.split(",")[0].trim();
+  }
+  try {
+    const proto = new URL(request.url).protocol.replace(":", "");
+    if (proto) return proto;
+  } catch {
+    // fall through
+  }
+  return new URL(connectIssuer).protocol.replace(":", "");
+}
+
 function resolveCanonicalHostname(connectIssuer) {
   return new URL(connectIssuer).hostname;
 }
@@ -184,19 +230,24 @@ export async function proxyToZitadel(request, options = {}) {
     }
   }
 
-  const upstreamUrl = new URL(requestUrl.pathname + requestUrl.search, config.issuer).toString();
+  const upstreamFetchBase = config.apiBase || config.issuer;
+  const upstreamUrl = new URL(requestUrl.pathname + requestUrl.search, upstreamFetchBase).toString();
 
   const headers = new Headers();
   for (const [key, value] of request.headers.entries()) {
     if (HOP_BY_HOP_HEADERS.has(key.toLowerCase())) continue;
     headers.set(key, value);
   }
-  headers.set("X-Forwarded-Host", requestUrl.host);
-  headers.set("X-Forwarded-Proto", requestUrl.protocol.replace(":", ""));
+  const publicHost = resolveProxyPublicHost(request, connectIssuer);
+  const publicProto = resolveProxyPublicProto(request, connectIssuer);
+
+  headers.set("X-Forwarded-Host", publicHost);
+  headers.set("X-Forwarded-Proto", publicProto);
   headers.set("X-Forwarded-Path", requestUrl.pathname);
 
   const upstreamHost = new URL(config.issuer).host;
-  headers.set("x-zitadel-public-host", requestUrl.host);
+  headers.set("Host", upstreamHost);
+  headers.set("x-zitadel-public-host", publicHost);
   headers.set("x-zitadel-instance-host", upstreamHost);
 
   const init = {

@@ -5,6 +5,8 @@ import {
   annotateDevIdTokenResignDiscovery,
   annotateProductionIdTokenSigningDiscovery,
   proxyToZitadel,
+  resolveProxyPublicHost,
+  resolveProxyPublicProto,
   rewriteDiscovery,
   rewriteHostedLoginLocation,
   rewriteLocation,
@@ -190,6 +192,60 @@ test("rewriteHostedLoginLocation maps Zitadel login UI paths to Connect login pa
     "https://other.example.com/ui/v2/login"
   );
 });
+
+test("resolveProxyPublicHost ignores container bind address 0.0.0.0", withEnv({}, async () => {
+  const request = makeRequest({
+    url: "http://0.0.0.0:3000/.well-known/openid-configuration",
+    headers: { "x-forwarded-host": "connect.example.com", "x-forwarded-proto": "https" },
+  });
+  assert.equal(resolveProxyPublicHost(request, "https://connect.example.com"), "connect.example.com");
+  assert.equal(resolveProxyPublicProto(request, "https://connect.example.com"), "https");
+}));
+
+test("proxyToZitadel uses public host when request url is 0.0.0.0 behind reverse proxy", withEnv({}, async () => {
+  const upstream = "https://id.zitadel.example.com";
+  const { fetchMock, calls } = makeMockFetch({
+    [`${upstream}/.well-known/openid-configuration`]: {
+      status: 200,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ issuer: upstream }),
+    },
+  });
+
+  const request = makeRequest({
+    url: "http://0.0.0.0:3000/.well-known/openid-configuration",
+    headers: { "x-forwarded-host": "connect.example.com", "x-forwarded-proto": "https" },
+  });
+  const response = await proxyToZitadel(request, { fetch: fetchMock });
+
+  assert.equal(response.status, 200);
+  assert.equal(calls[0].init.headers.get("X-Forwarded-Host"), "connect.example.com");
+  assert.equal(calls[0].init.headers.get("X-Forwarded-Proto"), "https");
+  assert.equal(calls[0].init.headers.get("x-zitadel-public-host"), "connect.example.com");
+  assert.equal(calls[0].init.headers.get("Host"), "id.zitadel.example.com");
+}));
+
+test("proxyToZitadel uses internal API base with public issuer host header", withEnv(
+  { ZITADEL_API_BASE: "http://zitadel:8080" },
+  async () => {
+    const { fetchMock, calls } = makeMockFetch({
+      "http://zitadel:8080/.well-known/openid-configuration": {
+        status: 200,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ issuer: "https://id.zitadel.example.com" }),
+      },
+    });
+
+    const request = makeRequest({
+      url: "https://connect.example.com/.well-known/openid-configuration",
+    });
+    const response = await proxyToZitadel(request, { fetch: fetchMock });
+
+    assert.equal(response.status, 200);
+    assert.equal(calls[0].upstreamUrl, "http://zitadel:8080/.well-known/openid-configuration");
+    assert.equal(calls[0].init.headers.get("Host"), "id.zitadel.example.com");
+  }
+));
 
 test("proxyToZitadel forwards GET authorize to upstream and rewrites Location redirect", withEnv({}, async () => {
   const upstream = "https://id.zitadel.example.com";
