@@ -90,6 +90,16 @@ services:
       ZITADEL_FIRSTINSTANCE_MACHINEKEYPATH: /bootstrap/connect-service-machinekey.json
       ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINEKEY_TYPE: "1"
 
+      # Zitadel v4 defaults to Login V2 at /ui/v2/login, which requires the separate
+      # zitadel-login container. Until that is deployed, use the legacy bundled login UI.
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: "false"
+
+      # Bootstrap login-client for future Login V2 (written on first init only).
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /bootstrap/login-client.pat
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Login client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "2299-12-31T23:59:59Z"
+
       ZITADEL_LOGSTORE_ACCESS_STDOUT_ENABLED: "true"
       ZITADEL_LOG_LEVEL: info
     volumes:
