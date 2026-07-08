@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isZitadelConfigured } from "./src/config/zitadel.js";
-import { proxyToZitadel, shouldProxyZitadel } from "./src/oidc/proxy-core.js";
+import { shouldProxyZitadel } from "./src/oidc/proxy-core.js";
+import { proxyToZitadel } from "./src/oidc/proxy-node.js";
 
 export const runtime = "nodejs";
 

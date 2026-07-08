@@ -152,10 +152,16 @@ async function recordConsentGrant({ authRequestInfo, sub, clientId }) {
     });
     return null;
   } catch (error) {
+    const code =
+      error?.code === AUTHORIZED_APPS_ERROR_CODES.AUTHORIZED_APPS_UNAUTHORIZED
+        ? AUTHORIZED_APPS_ERROR_CODES.AUTHORIZED_APPS_UNAUTHORIZED
+        : AUTHORIZED_APPS_ERROR_CODES.AUTHORIZED_APPS_UNAVAILABLE;
     return jsonResult(
-      error?.code || AUTHORIZED_APPS_ERROR_CODES.AUTHORIZED_APPS_UNAVAILABLE,
-      error?.message || "授权记录暂不可用，无法完成应用授权。",
-      statusForAuthorizedAppsError(error)
+      code,
+      code === AUTHORIZED_APPS_ERROR_CODES.AUTHORIZED_APPS_UNAUTHORIZED
+        ? error?.message || "授权记录服务拒绝访问。"
+        : "授权记录暂不可用，无法完成应用授权。",
+      code === AUTHORIZED_APPS_ERROR_CODES.AUTHORIZED_APPS_UNAUTHORIZED ? 401 : 503
     );
   }
 }

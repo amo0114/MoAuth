@@ -2,6 +2,7 @@ import { getZitadelConfig, isZitadelConfigured } from "../config/zitadel.js";
 import {
   getConnectIdTokenSigningAlgorithm,
   getPublicAppUrl,
+  isConnectIdTokenResignEnabled,
   isDevIdTokenResignEnabled,
   isProductionIdTokenSigningEnabled,
 } from "../config/env.js";
@@ -98,6 +99,12 @@ export function rewriteSetCookieDomain(setCookie, requestHost) {
 }
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const ZITADEL_HOSTED_LOGIN_PATHS = new Set([
+  "/ui/login",
+  "/ui/login/login",
+  "/ui/v2/login",
+  "/ui/v2/login/login",
+]);
 
 function isLoopbackHost(hostname) {
   return LOOPBACK_HOSTS.has(String(hostname || "").toLowerCase());
@@ -199,13 +206,26 @@ export function rewriteHostedLoginLocation(value, connectIssuer) {
       isLoopbackHost(parsed.hostname) &&
       isLoopbackHost(canonicalHost);
     if (!sameLoopbackOrigin && parsed.origin !== canonical.origin) return value;
-    if (parsed.pathname === "/ui/v2/login" || parsed.pathname === "/ui/v2/login/login") {
-      return `${connectIssuer}/login${parsed.search}`;
+    if (ZITADEL_HOSTED_LOGIN_PATHS.has(parsed.pathname)) {
+      return buildConnectHostedLoginUrl(parsed, connectIssuer);
     }
   } catch {
     return value;
   }
   return normalizeConnectPublicUrl(value, connectIssuer);
+}
+
+function buildConnectHostedLoginUrl(parsed, connectIssuer) {
+  const target = new URL("/login", connectIssuer);
+  for (const [key, value] of parsed.searchParams.entries()) {
+    target.searchParams.append(key, value);
+  }
+  const authRequestId = target.searchParams.get("authRequestID");
+  if (authRequestId && !target.searchParams.has("authRequest")) {
+    target.searchParams.set("authRequest", authRequestId);
+    target.searchParams.delete("authRequestID");
+  }
+  return target.toString();
 }
 
 export async function proxyToZitadel(request, options = {}) {
@@ -217,7 +237,8 @@ export async function proxyToZitadel(request, options = {}) {
   const upstreamFetch = options.fetch || fetch;
   const requestUrl = new URL(request.url);
 
-  if (requestUrl.pathname === "/oauth/v2/keys" && isProductionIdTokenSigningEnabled()) {
+  const isConnectJwksPath = requestUrl.pathname === "/oauth/v2/keys" || requestUrl.pathname === "/.well-known/jwks.json";
+  if (isConnectJwksPath && isProductionIdTokenSigningEnabled()) {
     const jwks = await getConnectJwksDocument();
     if (jwks) {
       return new Response(JSON.stringify(jwks), {
@@ -286,8 +307,8 @@ function rewriteProxiedLocation(value, upstreamIssuer, connectIssuer) {
   }
   try {
     const parsed = new URL(loc, connectIssuer);
-    if (parsed.pathname === "/ui/v2/login" || parsed.pathname === "/ui/v2/login/login") {
-      loc = `${connectIssuer}/login${parsed.search}`;
+    if (ZITADEL_HOSTED_LOGIN_PATHS.has(parsed.pathname)) {
+      loc = buildConnectHostedLoginUrl(parsed, connectIssuer);
     } else {
       loc = parsed.toString();
     }
@@ -328,11 +349,15 @@ async function buildProxiedResponse(upstreamResponse, upstreamIssuer, connectIss
 
   const isTokenResponse =
     requestUrl.pathname === "/oauth/v2/token" && contentType.includes("application/json");
-  if (isTokenResponse && typeof options.rewriteTokenResponseBody === "function") {
+  if (isTokenResponse) {
     const payload = await upstreamResponse.json().catch(() => null);
     if (payload && typeof payload === "object") {
       try {
-        const rewritten = await options.rewriteTokenResponseBody(payload, {
+        const rewriteTokenResponseBody = await resolveTokenResponseBodyRewriter(options);
+        if (typeof rewriteTokenResponseBody !== "function") {
+          return new Response(JSON.stringify(payload), { status, headers });
+        }
+        const rewritten = await rewriteTokenResponseBody(payload, {
           upstreamIssuer,
           connectIssuer,
           fetchImpl: options.fetch || fetch,
@@ -356,4 +381,21 @@ async function buildProxiedResponse(upstreamResponse, upstreamIssuer, connectIss
 
   const bodyBuffer = await upstreamResponse.arrayBuffer();
   return new Response(bodyBuffer, { status, headers });
+}
+
+async function resolveTokenResponseBodyRewriter(options = {}) {
+  if (typeof options.rewriteTokenResponseBody === "function") {
+    return options.rewriteTokenResponseBody;
+  }
+  if (!isConnectIdTokenResignEnabled()) {
+    return null;
+  }
+  const { rewriteOidcTokenResponseBody } = await import("./id-token-issuer.js");
+  const upstreamFetch = options.fetch || fetch;
+  return (body, ctx) =>
+    rewriteOidcTokenResponseBody(body, {
+      upstreamIssuer: ctx.upstreamIssuer,
+      connectIssuer: ctx.connectIssuer,
+      fetchImpl: ctx.fetchImpl || upstreamFetch,
+    });
 }

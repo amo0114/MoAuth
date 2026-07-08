@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -147,6 +148,8 @@ test("rewriteSetCookieDomain replaces Domain directive", () => {
 test("rewriteLocation absolutizes relative paths against connect issuer", () => {
   const upstream = "https://id.zitadel.example.com";
   const connect = "https://connect.example.com";
+  assert.equal(rewriteLocation("/ui/login?authRequestID=V2_abc", upstream, connect), "https://connect.example.com/login?authRequest=V2_abc");
+  assert.equal(rewriteLocation("/ui/login/login?authRequestID=V2_abc", upstream, connect), "https://connect.example.com/login?authRequest=V2_abc");
   assert.equal(rewriteLocation("/ui/v2/login?authRequest=V2_abc", upstream, connect), "https://connect.example.com/login?authRequest=V2_abc");
   assert.equal(rewriteLocation("/ui/v2/login/login?authRequest=V2_abc", upstream, connect), "https://connect.example.com/login?authRequest=V2_abc");
   assert.equal(rewriteLocation("ui/v2/login", upstream, connect), "https://connect.example.com/login");
@@ -175,6 +178,14 @@ test("rewriteLocation normalizes loopback host aliases to canonical Connect issu
 
 test("rewriteHostedLoginLocation maps Zitadel login UI paths to Connect login page", () => {
   const connect = "http://localhost:3000";
+  assert.equal(
+    rewriteHostedLoginLocation("http://localhost:3000/ui/login/login?authRequestID=V2_abc", connect),
+    "http://localhost:3000/login?authRequest=V2_abc"
+  );
+  assert.equal(
+    rewriteHostedLoginLocation("http://localhost:3000/ui/login?authRequestID=V2_abc", connect),
+    "http://localhost:3000/login?authRequest=V2_abc"
+  );
   assert.equal(
     rewriteHostedLoginLocation("http://localhost:3000/ui/v2/login/login?authRequest=V2_abc", connect),
     "http://localhost:3000/login?authRequest=V2_abc"
@@ -269,6 +280,23 @@ test("proxyToZitadel forwards GET authorize to upstream and rewrites Location re
   assert.equal(calls[0].init.headers.get("x-zitadel-instance-host"), "id.zitadel.example.com");
 }));
 
+test("proxyToZitadel maps Zitadel v4 login UI redirects to Connect login", withEnv({}, async () => {
+  const upstream = "https://id.zitadel.example.com";
+  const { fetchMock } = makeMockFetch({
+    [`${upstream}/oauth/v2/authorize?client_id=subboost-dev`]: {
+      status: 302,
+      headers: { location: `/ui/login/login?authRequestID=V2_abc` },
+      body: "",
+    },
+  });
+
+  const request = makeRequest({ url: "https://connect.example.com/oauth/v2/authorize?client_id=subboost-dev" });
+  const response = await proxyToZitadel(request, { fetch: fetchMock });
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "https://connect.example.com/login?authRequest=V2_abc");
+}));
+
 test("rewriteDiscovery annotates dev-only HS256 contract when resign secret is set", withEnv(
   { MOAUTH_CONNECT_ID_TOKEN_SIGNING_SECRET: "dev-secret" },
   async () => {
@@ -341,6 +369,38 @@ test("proxyToZitadel serves Connect JWKS locally in production-jwks mode", async
       for (const privateField of ["d", "p", "q", "dp", "dq", "qi", "oth"]) {
         assert.equal(privateField in payload.keys[0], false);
       }
+      resetConnectJwksCacheForTests();
+    }
+  )();
+});
+
+test("proxyToZitadel serves Connect JWKS well-known alias locally in production-jwks mode", async () => {
+  const { generateKeyPair, exportPKCS8 } = await import("jose");
+  const { privateKey } = await generateKeyPair("RS256", { extractable: true });
+  const pem = await exportPKCS8(privateKey);
+
+  await withEnv(
+    {
+      NODE_ENV: "production",
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_MODE: "production-jwks",
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY: pem,
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID: "connect-test-alias",
+    },
+    async () => {
+      const { resetConnectJwksCacheForTests } = await import("../src/oidc/connect-jwks.js");
+      resetConnectJwksCacheForTests();
+
+      const fetchMock = async () => {
+        throw new Error("upstream JWKS alias must not be called in production-jwks mode");
+      };
+      const request = makeRequest({ url: "https://connect.example.com/.well-known/jwks.json" });
+      const response = await proxyToZitadel(request, { fetch: fetchMock });
+
+      assert.equal(response.status, 200);
+      const payload = await response.json();
+      assert.equal(payload.keys.length, 1);
+      assert.equal(payload.keys[0].kid, "connect-test-alias");
+      assert.equal(payload.keys[0].alg, "RS256");
       resetConnectJwksCacheForTests();
     }
   )();
@@ -441,6 +501,163 @@ test("proxyToZitadel forwards POST body and set-cookie rewriting", withEnv({}, a
   assert.match(setCookie, /Domain=connect\.example\.com/);
   assert.doesNotMatch(setCookie, /id\.zitadel\.example\.com/);
 }));
+
+test("proxy-node re-signs token response id_token with Connect JWKS key in production-jwks mode", async () => {
+  const { createLocalJWKSet, exportJWK, exportPKCS8, generateKeyPair, jwtVerify, SignJWT } = await import("jose");
+  const upstreamKeyPair = await generateKeyPair("RS256", { extractable: true });
+  const connectKeyPair = await generateKeyPair("RS256", { extractable: true });
+  const connectPem = await exportPKCS8(connectKeyPair.privateKey);
+  const upstreamIssuer = "https://id.zitadel.example.com";
+  const connectIssuer = "https://connect.example.com";
+  const upstreamJwk = await exportJWK(upstreamKeyPair.publicKey);
+  const connectJwk = await exportJWK(connectKeyPair.publicKey);
+  const upstreamJwks = {
+    keys: [{ ...upstreamJwk, kid: "upstream-1", use: "sig", alg: "RS256" }],
+  };
+  const connectJwks = {
+    keys: [{ ...connectJwk, kid: "connect-test-1", use: "sig", alg: "RS256" }],
+  };
+  const upstreamToken = await new SignJWT({
+    sub: "user-1",
+    iss: upstreamIssuer,
+    aud: "subboost-client",
+    nonce: "nonce-1",
+  })
+    .setProtectedHeader({ alg: "RS256", kid: "upstream-1" })
+    .sign(upstreamKeyPair.privateKey);
+
+  await withEnv(
+    {
+      NODE_ENV: "production",
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_MODE: "production-jwks",
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY: connectPem,
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID: "connect-test-1",
+    },
+    async () => {
+      const { resetConnectJwksCacheForTests } = await import("../src/oidc/connect-jwks.js");
+      resetConnectJwksCacheForTests();
+
+      const { fetchMock } = makeMockFetch({
+        [`${upstreamIssuer}/oauth/v2/token`]: {
+          status: 200,
+          headers: { "content-type": "application/json" },
+          body: {
+            access_token: "access-token",
+            id_token: upstreamToken,
+            token_type: "Bearer",
+            expires_in: 3600,
+          },
+        },
+        [`${upstreamIssuer}/oauth/v2/keys`]: {
+          status: 200,
+          headers: { "content-type": "application/json" },
+          body: upstreamJwks,
+        },
+      });
+
+      const request = makeRequest({
+        method: "POST",
+        url: `${connectIssuer}/oauth/v2/token`,
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: "grant_type=authorization_code&code=xyz",
+      });
+      const response = await proxyNodeToZitadel(request, { fetch: fetchMock });
+
+      assert.equal(response.status, 200);
+      const payload = await response.json();
+      assert.notEqual(payload.id_token, upstreamToken);
+      const verified = await jwtVerify(payload.id_token, createLocalJWKSet(connectJwks), {
+        issuer: connectIssuer,
+        audience: "subboost-client",
+      });
+      assert.equal(verified.payload.sub, "user-1");
+      assert.equal(verified.payload.nonce, "nonce-1");
+      assert.equal(verified.protectedHeader.kid, "connect-test-1");
+      resetConnectJwksCacheForTests();
+    }
+  )();
+});
+
+test("proxy core falls back to Connect JWKS re-signing when token rewrite option is omitted", async () => {
+  const { createLocalJWKSet, exportJWK, exportPKCS8, generateKeyPair, jwtVerify, SignJWT } = await import("jose");
+  const upstreamKeyPair = await generateKeyPair("RS256", { extractable: true });
+  const connectKeyPair = await generateKeyPair("RS256", { extractable: true });
+  const connectPem = await exportPKCS8(connectKeyPair.privateKey);
+  const upstreamIssuer = "https://id.zitadel.example.com";
+  const connectIssuer = "https://connect.example.com";
+  const upstreamJwk = await exportJWK(upstreamKeyPair.publicKey);
+  const connectJwk = await exportJWK(connectKeyPair.publicKey);
+  const upstreamJwks = {
+    keys: [{ ...upstreamJwk, kid: "upstream-core-1", use: "sig", alg: "RS256" }],
+  };
+  const connectJwks = {
+    keys: [{ ...connectJwk, kid: "connect-core-1", use: "sig", alg: "RS256" }],
+  };
+  const upstreamToken = await new SignJWT({
+    sub: "user-core",
+    iss: upstreamIssuer,
+    aud: "subboost-client",
+    nonce: "nonce-core",
+  })
+    .setProtectedHeader({ alg: "RS256", kid: "upstream-core-1" })
+    .sign(upstreamKeyPair.privateKey);
+
+  await withEnv(
+    {
+      NODE_ENV: "production",
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_MODE: "production-jwks",
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_PRIVATE_KEY: connectPem,
+      MOAUTH_CONNECT_ID_TOKEN_SIGNING_KID: "connect-core-1",
+    },
+    async () => {
+      const { resetConnectJwksCacheForTests } = await import("../src/oidc/connect-jwks.js");
+      resetConnectJwksCacheForTests();
+
+      const { fetchMock } = makeMockFetch({
+        [`${upstreamIssuer}/oauth/v2/token`]: {
+          status: 200,
+          headers: { "content-type": "application/json" },
+          body: {
+            access_token: "access-token",
+            id_token: upstreamToken,
+            token_type: "Bearer",
+          },
+        },
+        [`${upstreamIssuer}/oauth/v2/keys`]: {
+          status: 200,
+          headers: { "content-type": "application/json" },
+          body: upstreamJwks,
+        },
+      });
+
+      const request = makeRequest({
+        method: "POST",
+        url: `${connectIssuer}/oauth/v2/token`,
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: "grant_type=authorization_code&code=xyz",
+      });
+      const response = await proxyToZitadel(request, { fetch: fetchMock });
+
+      assert.equal(response.status, 200);
+      const payload = await response.json();
+      assert.notEqual(payload.id_token, upstreamToken);
+      const verified = await jwtVerify(payload.id_token, createLocalJWKSet(connectJwks), {
+        issuer: connectIssuer,
+        audience: "subboost-client",
+      });
+      assert.equal(verified.payload.sub, "user-core");
+      assert.equal(verified.payload.nonce, "nonce-core");
+      assert.equal(verified.protectedHeader.kid, "connect-core-1");
+      resetConnectJwksCacheForTests();
+    }
+  )();
+});
+
+test("middleware routes OIDC proxy requests through node wrapper so token responses can be re-signed", () => {
+  const source = readFileSync(new URL("../middleware.js", import.meta.url), "utf8");
+  assert.ok(source.includes('from "./src/oidc/proxy-node.js"'));
+  assert.equal(source.includes('import { proxyToZitadel, shouldProxyZitadel } from "./src/oidc/proxy-core.js"'), false);
+});
 
 test("proxy-node returns 502 when production-jwks id_token re-signing fails", async () => {
   const { generateKeyPair, exportPKCS8 } = await import("jose");

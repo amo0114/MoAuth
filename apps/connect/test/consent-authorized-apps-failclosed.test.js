@@ -53,6 +53,35 @@ test("consent allow returns 503 and does not finalize when authorized-app grant 
   }
 });
 
+test("consent allow normalizes authorized-app grant server failures to unavailable", async () => {
+  const account = await startAccountServer({
+    grantResponse: {
+      status: 500,
+      body: {
+        error: {
+          code: "AUTHORIZED_APPS_RECORD_FAILED",
+          message: "Failed to record authorized application.",
+        },
+      },
+    },
+  });
+  const zitadel = await startZitadelServer();
+
+  try {
+    configureEnv({ accountUrl: account.url, zitadelUrl: zitadel.url });
+    seedAuthRequestCache();
+
+    const result = await resolveConsentPost(makeConsentInput());
+
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, AUTHORIZED_APPS_ERROR_CODES.AUTHORIZED_APPS_UNAVAILABLE);
+    assert.equal(account.grantCalls(), 1);
+    assert.equal(zitadel.finalizeCalls(), 0);
+  } finally {
+    await Promise.all([account.close(), zitadel.close()]);
+  }
+});
+
 test("consent allow records grant before finalizing auth request", async () => {
   const callOrder = [];
   const account = await startAccountServer({

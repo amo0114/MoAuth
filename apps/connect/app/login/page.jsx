@@ -40,7 +40,11 @@ function isNextRedirect(error) {
 export default async function LoginPage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
   const authRequestId =
-    typeof resolvedSearchParams?.authRequest === "string" ? resolvedSearchParams.authRequest : "";
+    typeof resolvedSearchParams?.authRequest === "string"
+      ? resolvedSearchParams.authRequest
+      : typeof resolvedSearchParams?.authRequestID === "string"
+        ? resolvedSearchParams.authRequestID
+        : "";
   const tx = typeof resolvedSearchParams?.tx === "string" ? resolvedSearchParams.tx : "";
   const cookieStore = await cookies();
   const headerStore = await headers();

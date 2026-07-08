@@ -346,7 +346,12 @@ cmd_preflight() {
 
   check curl -fsS "http://127.0.0.1:18080/debug/ready" >/dev/null
   check curl -fsS "http://127.0.0.1:13000/.well-known/openid-configuration" >/dev/null
-  check curl -fsS "http://127.0.0.1:13002/api/health/ready" | jq -e '.ok == true' >/dev/null
+  if curl -fsS "http://127.0.0.1:13002/api/health/ready" | jq -e '.ok == true' >/dev/null; then
+    log "OK  curl -fsS http://127.0.0.1:13002/api/health/ready | jq -e '.ok == true'"
+  else
+    log "FAIL curl -fsS http://127.0.0.1:13002/api/health/ready | jq -e '.ok == true'"
+    failed=1
+  fi
 
   if [[ -n "${NEXT_PUBLIC_IDENTITY_ACCOUNT_URL:-}" && -n "${NEXT_PUBLIC_IDENTITY_CONNECT_URL:-}" ]]; then
     log "OK  NEXT_PUBLIC_IDENTITY_* URLs set"
