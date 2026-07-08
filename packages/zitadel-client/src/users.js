@@ -118,7 +118,7 @@ export async function verifyUserEmail(userId, verificationCode, options = {}) {
 }
 
 export async function deactivateHumanUser(userId, options = {}) {
-  return putUserAction(
+  return postUserAction(
     userId,
     "/deactivate",
     {},
@@ -128,7 +128,7 @@ export async function deactivateHumanUser(userId, options = {}) {
 }
 
 export async function reactivateHumanUser(userId, options = {}) {
-  return putUserAction(
+  return postUserAction(
     userId,
     "/reactivate",
     {},

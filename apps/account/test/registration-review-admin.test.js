@@ -52,7 +52,7 @@ test(
     const fetchMock = async (url, init) => {
       const key = `${init?.method || "GET"} ${String(url)}`;
       calls.push(key);
-      if (key === "PUT https://zitadel.example.com/v2/users/review-user/reactivate") {
+      if (key === "POST https://zitadel.example.com/v2/users/review-user/reactivate") {
         return ok({});
       }
       throw new Error(`Unexpected fetch ${key}`);
@@ -61,7 +61,7 @@ test(
     const approved = await approveRegistrationReview(record.id, ADMIN, { fetch: fetchMock });
 
     assert.equal(approved.reviewStatus, "approved");
-    assert.deepEqual(calls, ["PUT https://zitadel.example.com/v2/users/review-user/reactivate"]);
+    assert.deepEqual(calls, ["POST https://zitadel.example.com/v2/users/review-user/reactivate"]);
   })
 );
 
@@ -140,7 +140,7 @@ test(
       if (key === "GET https://zitadel.example.com/management/v1/users/approved-user") {
         return ok({ id: "approved-user", state: "USER_STATE_INACTIVE", human: {} });
       }
-      if (key === "PUT https://zitadel.example.com/v2/users/approved-user/reactivate") {
+      if (key === "POST https://zitadel.example.com/v2/users/approved-user/reactivate") {
         return ok({});
       }
       throw new Error(`Unexpected fetch ${key}`);
@@ -151,7 +151,7 @@ test(
     assert.equal(result.status, "active");
     assert.deepEqual(calls, [
       "GET https://zitadel.example.com/management/v1/users/approved-user",
-      "PUT https://zitadel.example.com/v2/users/approved-user/reactivate",
+      "POST https://zitadel.example.com/v2/users/approved-user/reactivate",
     ]);
   })
 );

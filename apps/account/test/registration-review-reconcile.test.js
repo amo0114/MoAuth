@@ -51,7 +51,7 @@ test(
     const fetchMock = async (url, init) => {
       const key = `${init?.method || "GET"} ${String(url)}`;
       calls.push(key);
-      if (key === "PUT https://zitadel.example.com/v2/users/review-user/reactivate") {
+      if (key === "POST https://zitadel.example.com/v2/users/review-user/reactivate") {
         return response({});
       }
       throw new Error(`Unexpected fetch ${key}`);
@@ -64,7 +64,7 @@ test(
       { id: record.id, userId: "review-user", from: "approving", to: "approved" },
     ]);
     assert.deepEqual(result.failed, []);
-    assert.deepEqual(calls, ["PUT https://zitadel.example.com/v2/users/review-user/reactivate"]);
+    assert.deepEqual(calls, ["POST https://zitadel.example.com/v2/users/review-user/reactivate"]);
 
     const events = listAuditEventsForSub(SYSTEM_SUB);
     assert.equal(events.length, 1);

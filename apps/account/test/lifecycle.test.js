@@ -161,7 +161,7 @@ test(
       if (key === "POST https://zitadel.example.com/v2/users/human") {
         return ok({ userId: "review-user", emailCode: "MAIL99" });
       }
-      if (key === "PUT https://zitadel.example.com/v2/users/review-user/deactivate") {
+      if (key === "POST https://zitadel.example.com/v2/users/review-user/deactivate") {
         return ok({});
       }
       throw new Error(`Unexpected fetch ${key}`);
@@ -175,7 +175,7 @@ test(
     assert.equal(result.status, "PENDING_REVIEW");
     assert.deepEqual(calls, [
       "POST https://zitadel.example.com/v2/users/human",
-      "PUT https://zitadel.example.com/v2/users/review-user/deactivate",
+      "POST https://zitadel.example.com/v2/users/review-user/deactivate",
     ]);
     const reviews = getRegistrationReviewStore().list({ userId: "review-user" });
     assert.equal(reviews.length, 1);
@@ -194,7 +194,7 @@ test(
       if (key === "POST https://zitadel.example.com/v2/users/human") {
         return ok({ userId: "review-fail", emailCode: "MAIL99" });
       }
-      if (key === "PUT https://zitadel.example.com/v2/users/review-fail/deactivate") {
+      if (key === "POST https://zitadel.example.com/v2/users/review-fail/deactivate") {
         return ok({ error: "down" }, 503);
       }
       if (key === "DELETE https://zitadel.example.com/v2/users/review-fail") {
@@ -212,7 +212,7 @@ test(
     );
     assert.deepEqual(calls, [
       "POST https://zitadel.example.com/v2/users/human",
-      "PUT https://zitadel.example.com/v2/users/review-fail/deactivate",
+      "POST https://zitadel.example.com/v2/users/review-fail/deactivate",
       "DELETE https://zitadel.example.com/v2/users/review-fail",
     ]);
     assert.equal(getRegistrationReviewStore().list({ userId: "review-fail" }).length, 0);

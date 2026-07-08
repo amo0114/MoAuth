@@ -118,8 +118,8 @@ test(
   "human user lifecycle helpers call v2 status endpoints",
   withEnv(requiredEnv, async () => {
     const fetchMock = makeMockFetch({
-      "PUT https://zitadel.example.com/v2/users/user-1/deactivate": { body: {} },
-      "PUT https://zitadel.example.com/v2/users/user-1/reactivate": { body: {} },
+      "POST https://zitadel.example.com/v2/users/user-1/deactivate": { body: {} },
+      "POST https://zitadel.example.com/v2/users/user-1/reactivate": { body: {} },
       "DELETE https://zitadel.example.com/v2/users/user-1": { body: {} },
     });
 
