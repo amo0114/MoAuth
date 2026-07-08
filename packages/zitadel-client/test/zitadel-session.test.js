@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   ZITADEL_ERROR_CODES,
+  buildZitadelFetch,
   createPasswordSession,
   finalizeAuthRequest,
   getAuthRequest,
@@ -72,6 +73,21 @@ test("getZitadelConfig falls back API_BASE to ISSUER when API_BASE unset", () =>
   const config = getZitadelConfig();
   assert.equal(config.apiBase, "https://id.example.com");
   assert.equal(config.issuer, "https://id.example.com");
+  process.env = { ...origEnv };
+});
+
+test("buildZitadelFetch sets Host from issuer when API_BASE is internal", async () => {
+  process.env = { ...origEnv };
+  process.env.ZITADEL_ISSUER = "https://id.example.com";
+  process.env.ZITADEL_API_BASE = "http://zitadel:8080";
+  process.env.ZITADEL_SERVICE_USER_TOKEN = "tok";
+  const config = getZitadelConfig();
+  const { fetchMock, calls } = makeMockFetch({
+    "GET http://zitadel:8080/v2/sessions/test": { status: 200, body: {} },
+  });
+  const fetcher = buildZitadelFetch(config, fetchMock);
+  await fetcher("/v2/sessions/test", { method: "GET" });
+  assert.equal(calls[0].init.headers.get("Host"), "id.example.com");
   process.env = { ...origEnv };
 });
 

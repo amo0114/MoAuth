@@ -69,7 +69,22 @@ export function isZitadelConfigured() {
 
 const optimizedFetch = createOptimizedFetch();
 
+function resolveIssuerHost(issuer) {
+  return new URL(issuer).host;
+}
+
+function shouldSendIssuerHostHeader(apiBase, issuer) {
+  try {
+    return resolveIssuerHost(apiBase) !== resolveIssuerHost(issuer);
+  } catch {
+    return false;
+  }
+}
+
 export function buildZitadelFetch(config = getZitadelConfig(), underlyingFetch = optimizedFetch) {
+  const issuerHost = resolveIssuerHost(config.issuer);
+  const sendIssuerHostHeader = shouldSendIssuerHostHeader(config.apiBase, config.issuer);
+
   return async function zitadelFetch(path, init = {}) {
     const url = joinUrl(config.apiBase, path);
     const headers = new Headers(init.headers || {});
@@ -79,6 +94,9 @@ export function buildZitadelFetch(config = getZitadelConfig(), underlyingFetch =
     }
     headers.set("Accept", "application/json");
     headers.set("Connection", "keep-alive");
+    if (sendIssuerHostHeader) {
+      headers.set("Host", issuerHost);
+    }
 
     const startTime = Date.now();
     let response;
